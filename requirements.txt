@@ -1,0 +1,6 @@
+aiofiles
+fastapi
+sqlalchemy
+dotenv
+asyncpg
+python-multipart
