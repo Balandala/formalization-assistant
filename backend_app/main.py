@@ -1,6 +1,7 @@
 import os
 import uuid
 import aiofiles
+import requests
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -50,7 +51,7 @@ async def upload_document(file: UploadFile = File(...),
     await db.commit()
     await db.refresh(new_doc)
 
-    await process_doc(new_doc.id, db) # имитация обработки(5 секунд)
+    await process_doc(file_path, new_doc.id, db)
 
     return new_doc
 
@@ -87,11 +88,15 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     )
 
 
-
-async def process_doc(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """Заглушка имитации обработки документа"""
-    await sleep(5)
-    stmt = update(Document).where(Document.id == doc_id).values(status=TaskStatus.COMPLETED.value)
+async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    URL = "https://127.0.0.1:7272/process"
+    absPath = os.path.abspath(filepath)
+    response = requests.post(URL, json={"filepath":absPath}, verify= False)
+    if response.status_code == 200:
+        stat = TaskStatus.COMPLETED.value
+    else:
+        stat = TaskStatus.FAILED.value
+    stmt = update(Document).where(Document.id == doc_id).values(status=stat)
     await db.execute(stmt)
     await db.commit()
 

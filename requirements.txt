@@ -4,3 +4,5 @@ sqlalchemy
 dotenv
 asyncpg
 python-multipart
+requests
+uvicorn
