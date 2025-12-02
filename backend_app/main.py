@@ -73,6 +73,7 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if doc.status != TaskStatus.COMPLETED.value:
         return HTTPException(status_code=400, detail="Document not ready")
 
+
     if not os.path.exists(doc.path):
         raise HTTPException(status_code=500, detail="Processed file not found on server")
 
