@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from asyncio import sleep
 from fastapi.background import BackgroundTasks
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine, Base, get_db
 from .models import Document, TaskStatus
@@ -18,13 +20,35 @@ from .schemas import DocumentResponse
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+FRONTEND_DIR = os.path.join(BASE_DIR, "../frontend_app")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
 
-app = FastAPI(title="DocHelper", lifespan=lifespan, )
+app = FastAPI(title="DocHelper", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:7272",
+        "http://127.0.0.1:7272",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.mount("/styles", StaticFiles(directory=os.path.join(FRONTEND_DIR, "styles")), name="styles")
+app.mount("/scripts", StaticFiles(directory=os.path.join(FRONTEND_DIR, "scripts")), name="scripts")
+app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
 
 @app.post("/upload", response_model=DocumentResponse)
 async def upload_document(file: UploadFile = File(...),
@@ -88,6 +112,9 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         background=background_tasks
     )
 
+@app.get("/main")
+async def get_main_page():
+    return FileResponse("frontend_app/static/index.html")
 
 async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     URL = "https://127.0.0.1:7272/process"
