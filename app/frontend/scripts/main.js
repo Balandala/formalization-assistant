@@ -98,7 +98,7 @@ async function checkStatus(docId) {
           <strong>✅ Обработка завершена!</strong>
           <br>
           <button class="btn btn-success mt-2" onclick="downloadFile('${docId}')">
-            💾 Скачать файл
+            Скачать файл
           </button>
         </div>
       `;
