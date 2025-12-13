@@ -5,17 +5,15 @@ import requests
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from asyncio import sleep
 from fastapi.background import BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import engine, Base, get_db
-from .models import Document, TaskStatus
-from .schemas import DocumentResponse
+from app.backend.server.database import engine, Base, get_db
+from app.backend.server.models import Document, TaskStatus
+from app.backend.server.schemas import DocumentResponse
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -23,7 +21,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-FRONTEND_DIR = os.path.join(BASE_DIR, "../frontend_app")
+FRONTEND_DIR = os.path.join(BASE_DIR, "../../frontend")
 
 
 @asynccontextmanager
@@ -114,7 +112,7 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @app.get("/main")
 async def get_main_page():
-    return FileResponse("frontend_app/static/index.html")
+    return FileResponse("app/frontend/static/index.html")
 
 async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     URL = "https://127.0.0.1:7272/process"
