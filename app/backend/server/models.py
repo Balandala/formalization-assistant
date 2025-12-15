@@ -1,8 +1,8 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Enum as SqlEnum
+from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import enum
-from .database import Base
+from app.backend.server.database import Base
 
 class TaskStatus(str, enum.Enum):
     PENDING = "PENDING"
