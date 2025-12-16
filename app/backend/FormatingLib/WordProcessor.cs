@@ -18,7 +18,6 @@ namespace FormatingLib
     {
         private FormatingConfiguration config;
         public WordProcessor(FormatingConfiguration config) {
-            config.OverrideFormating = true;
             this.config = config;
         }
 
