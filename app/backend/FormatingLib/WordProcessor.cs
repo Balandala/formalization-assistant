@@ -7,12 +7,20 @@ using System.Text;
 using Charts = DocumentFormat.OpenXml.Drawing.Charts;
 using static FormatingLib.StylesLib;
 using DocumentFormat.OpenXml.Vml;
+using FormatingLib.Model;
+using DocumentFormat.OpenXml;
+
 
 namespace FormatingLib
 {
     public class WordProcessor
     {
-        public static void ProcessFile(string filepath)
+        private FormatingConfiguration config;
+        public WordProcessor(FormatingConfiguration config) {
+            this.config = config;
+        }
+
+        public void ProcessFile(string filepath)
         {
             if (!filepath.EndsWith(".docx"))
                 throw new ArgumentException("Invalid file type");
@@ -22,19 +30,23 @@ namespace FormatingLib
             }
         }
 
-        public static void Process(WordprocessingDocument doc)
+        public void Process(WordprocessingDocument doc)
         {
             DocInit(doc);
-            //SetSectionProperties(doc);
             OverrideStyles(GetStylesDefinitionPart(doc));
             IEnumerable<Paragraph> paragraphs = doc.MainDocumentPart.Document.Body.Descendants<Paragraph>();
             foreach (var p in paragraphs)
             {
-                if (IsTitle(p, paragraphs))
+                if (config.OverrideFormating)
+                {
+                    OverrideRunProperties(p);
+                }
+
+                if (IsTitle(p, paragraphs) && config.Headings)
                 {
                     ApplyStyleToParagraph(doc, StyleIds.Heading1, p);
                 }
-                else if (IsAfterMedia(p, paragraphs))
+                else if (IsAfterMedia(p, paragraphs) && config.Captions)
                 {
                     ApplyStyleToParagraph(doc, StyleIds.Media, p);
                 }
@@ -42,11 +54,16 @@ namespace FormatingLib
                 {
                     ApplyStyleToParagraph(doc, StyleIds.Heading1, p);
                 }
-                else
+                else if (config.NormalText)
                 {
                     ApplyStyleToParagraph(doc, StyleIds.Normal, p);
                 }
             }
+
+            if (config.PagesNumeration)
+                AddFooter(doc);
+            if (config.PageFields)
+                AddPageFields(doc);
         }
 
         private static void DocInit(WordprocessingDocument doc)
@@ -62,31 +79,13 @@ namespace FormatingLib
             }
         }
 
-        private static void SetSectionProperties(WordprocessingDocument doc) //TODO FIX
-        {
-            Body body = doc.MainDocumentPart.Document.Body ?? new Body();
-
-            var sectionProperties = new SectionProperties();
-
-            Charts.PageMargins pageMargins = new Charts.PageMargins()
-            {
-                Left = 1700,
-                Right = 850,
-                Top = 1133,
-                Bottom = 1133
-            };
-
-            sectionProperties.Append(pageMargins);
-            body.Append(sectionProperties);
-        }
-
         private static bool IsTitle(Paragraph p, IEnumerable<Paragraph> allParagraphs)
         {
             if (p == null) return false;
 
             int score = 0;
 
-            if (IsContainsMedia(p)) score = -100;
+            if (IsContainsMedia(p) || (IsInTable(p))) score = -100;
 
             if (IsAfterPageBreak(p, allParagraphs)) score += 2;
 
@@ -103,11 +102,26 @@ namespace FormatingLib
         }
 
 
+        private static bool IsInTable(Paragraph p)
+        {
+            bool hasTableAncestor = p.Ancestors<Table>().Any();
+            bool hasTableCellAncestor = p.Ancestors<TableCell>().Any();
+
+            return hasTableAncestor || hasTableCellAncestor;
+        }
+
         private static bool IsAfterPageBreak(Paragraph p, IEnumerable<Paragraph> allParagraphs)
         {
             int index = allParagraphs.ToList().IndexOf(p);
             if (index == 0) return false;
-            return allParagraphs.ElementAt(index - 1).Descendants<Break>().Any(x => x.Type.Value == BreakValues.Page);
+
+            bool isAfterPageBreak = allParagraphs.ElementAt(index - 1).Descendants<Break>().Any(x => {
+                if (x.Type == null)
+                    return false;
+                return x.Type.Value == BreakValues.Page;
+            });
+
+            return isAfterPageBreak;
         }
 
         private static bool IsTextShort(Paragraph paragraph)
@@ -198,38 +212,6 @@ namespace FormatingLib
             pPr.ParagraphStyleId = new ParagraphStyleId() { Val = styleid.ToString() };
         }
 
-        private static bool IsStyleIdInDocument(WordprocessingDocument doc, string styleid)
-        {
-            // Get access to the Styles element for this document.
-            Styles? s = doc.MainDocumentPart?.StyleDefinitionsPart?.Styles;
-
-            if (s is null)
-            {
-                return false;
-            }
-
-            // Check that there are styles and how many.
-            int n = s.Elements<Style>().Count();
-
-            if (n == 0)
-            {
-                return false;
-            }
-
-            // Look for a match on styleid.
-            Style? style = s.Elements<Style>()
-                .Where(st => (st.StyleId is not null && st.StyleId == styleid) && (st.Type is not null && st.Type == StyleValues.Paragraph))
-                .FirstOrDefault();
-            if (style is null)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-
-
         private static StyleDefinitionsPart GetStylesDefinitionPart(WordprocessingDocument doc)
         {
             MainDocumentPart mainPart = doc.MainDocumentPart ?? doc.AddMainDocumentPart();
@@ -258,12 +240,146 @@ namespace FormatingLib
             Styles styles = styleDefinitionsPart.Styles;
             
             styles.Append(MakeTextStyle());
-            styles.Append(MakeTitleStyle());
-            styles.AppendChild(MakeMediaStyle());
+            styles.Append(MakeHeadingStyle());
+            styles.AppendChild(MakeCaptionStyle());
 
         }
 
+        private Footer MakeFooter()
+        {
+            Footer footer = new Footer();
 
+            Paragraph paragraph = new Paragraph();
 
+            ParagraphProperties paragraphProperties = new ParagraphProperties();
+            paragraphProperties.Append(new Justification()
+            {
+                Val = JustificationValues.Center
+            });
+            paragraphProperties.Append(new Indentation()
+            {
+                Left = "0", 
+                Right = "0",     
+                FirstLine = "0", 
+                Hanging = "0"    
+            });
+            paragraph.Append(paragraphProperties);
+
+            Run run = new Run();
+
+            RunProperties runProperties = new RunProperties();
+            run.Append(runProperties);
+
+            run.Append(new SimpleField()
+            {
+                Instruction = "PAGE" // Выставление номера страницы
+            });
+
+            paragraph.Append(run);
+            footer.Append(paragraph);
+
+            return footer;
+        }
+
+        private FooterPart GetFooterPart(WordprocessingDocument doc)
+        {
+            MainDocumentPart mainPart = doc.MainDocumentPart;
+
+            if (mainPart.FooterParts == null || !mainPart.FooterParts.Any())
+            {
+                return mainPart.AddNewPart<FooterPart>();
+            }
+            else
+            {
+                return mainPart.FooterParts.First();
+            }
+        }
+
+        private SectionProperties GetSectionProperties(WordprocessingDocument doc)
+        {
+            MainDocumentPart mainPart = doc.MainDocumentPart;
+            SectionProperties sectionProps;
+
+            if (mainPart.Document.Body.Elements<SectionProperties>().Any())
+            {
+                sectionProps = mainPart.Document.Body.Elements<SectionProperties>().Last();
+            }
+            else
+            {
+                sectionProps = new SectionProperties();
+                mainPart.Document.Body.Append(sectionProps);
+            }
+
+            return sectionProps;
+        }
+
+        private void AddPageFields(WordprocessingDocument doc)
+        {
+            Body body = doc.MainDocumentPart.Document.Body;
+
+            var sectionProperties = GetSectionProperties(doc);
+
+            PageMargin pageMargins = new()
+            {
+                Left = 1700,
+                Right = 850,
+                Top = 1133,
+                Bottom = 1133
+            };
+
+            AddOrUpdateElement<PageMargin>(sectionProperties, pageMargins);
+        }
+
+        private void AddFooter(WordprocessingDocument doc)
+        {
+            MainDocumentPart mainPart = doc.MainDocumentPart;
+
+            FooterPart footerPart = GetFooterPart(doc);
+            Footer footer = MakeFooter();
+
+            footerPart.Footer = footer;
+
+            SectionProperties sectionProps = GetSectionProperties(doc);
+
+            string footerPartId = mainPart.GetIdOfPart(footerPart);
+            FooterReference footerReference = new FooterReference()
+            {
+                Type = HeaderFooterValues.Default,
+                Id = footerPartId
+            };
+
+            AddOrUpdateElement<FooterReference>(sectionProps, footerReference);
+        }
+
+        private void AddOrUpdateElement<T>(SectionProperties sectionProp, T element)
+            where T : OpenXmlElement
+        {
+
+            var exisitngElement = sectionProp.Elements<T>().FirstOrDefault();
+
+            if (exisitngElement != null)
+            {
+                exisitngElement.Remove();
+                sectionProp.Append(element);
+            }
+            else
+            {
+                sectionProp.Append(element);
+            }
+        }
+
+        private void OverrideRunProperties(Paragraph p)
+        {
+            var rPr = p.Descendants<RunProperties>().ToArray();
+            foreach (RunProperties prop in rPr) 
+            {
+                prop.Bold = null;
+                prop.Italic = null;
+                prop.Underline = null;
+
+                prop.Color = null;
+            }
+        }
     }
+
 }

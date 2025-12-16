@@ -41,27 +41,24 @@ namespace FormatingLib
 
             // Create the StyleRunProperties object and specify some of the run properties.
             StyleRunProperties styleRunProperties1 = new StyleRunProperties();
-            Bold bold1 = new Bold();
-            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman" };
+            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", ComplexScript = "Times New Roman" };
             // Specify a 14 point size.
             FontSize fontSize1 = new FontSize() { Val = "28" };
             styleRunProperties1.Append(font1);
             styleRunProperties1.Append(fontSize1);
 
-            // Add the run properties to the style.
             style.Append(styleRunProperties1);
-
 
             return style;
         }
-        public static Style MakeTitleStyle()
+        public static Style MakeHeadingStyle()
         {
             Style style = new Style()
             {
                 Type = StyleValues.Paragraph,
                 StyleId = "Heading1",
                 CustomStyle = true,
-                Default = true
+                Default = false
             };
             StyleName styleName1 = new StyleName() { Val = "Heading1" };
             BasedOn basedOn1 = new BasedOn() { Val = "Heading1" };
@@ -79,7 +76,7 @@ namespace FormatingLib
 
             StyleRunProperties styleRunProperties1 = new StyleRunProperties();
             Bold bold1 = new Bold();
-            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman" };
+            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", ComplexScript = "Times New Roman" };
             FontSize fontSize1 = new FontSize() { Val = "28" };
             styleRunProperties1.Append(font1);
             styleRunProperties1.Append(fontSize1);
@@ -91,14 +88,14 @@ namespace FormatingLib
             return style;
         }
 
-        public static Style MakeMediaStyle()
+        public static Style MakeCaptionStyle()
         {
             Style style = new Style()
             {
                 Type = StyleValues.Paragraph,
                 StyleId = "Media",
                 CustomStyle = true,
-                Default = true
+                Default = false
             };
             StyleName styleName1 = new StyleName() { Val = "Media" };
             BasedOn basedOn1 = new BasedOn() { Val = "Normal" };
@@ -116,7 +113,7 @@ namespace FormatingLib
 
             StyleRunProperties styleRunProperties1 = new StyleRunProperties();
             Italic italic1 = new Italic();
-            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman" };
+            RunFonts font1 = new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", ComplexScript = "Times New Roman" };
             FontSize fontSize1 = new FontSize() { Val = "28" };
             styleRunProperties1.Append(font1);
             styleRunProperties1.Append(fontSize1);
