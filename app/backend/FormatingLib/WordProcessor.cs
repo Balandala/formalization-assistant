@@ -1,14 +1,15 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Vml;
 using DocumentFormat.OpenXml.Wordprocessing;
+using FormatingLib.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
-using Charts = DocumentFormat.OpenXml.Drawing.Charts;
 using static FormatingLib.StylesLib;
-using DocumentFormat.OpenXml.Vml;
-using FormatingLib.Model;
-using DocumentFormat.OpenXml;
+using Charts = DocumentFormat.OpenXml.Drawing.Charts;
 
 
 namespace FormatingLib
@@ -17,6 +18,7 @@ namespace FormatingLib
     {
         private FormatingConfiguration config;
         public WordProcessor(FormatingConfiguration config) {
+            config.OverrideFormating = true;
             this.config = config;
         }
 
@@ -85,15 +87,17 @@ namespace FormatingLib
 
             int score = 0;
 
-            if (IsContainsMedia(p) || (IsInTable(p))) score = -100;
+            if (IsContainsMedia(p) || (IsInTable(p)) || IsInNumberedList(p, allParagraphs)) score = -100;
 
             if (IsAfterPageBreak(p, allParagraphs)) score += 2;
 
             if (IsTextShort(p)) score += 2;
 
-            if (IsHeadingByStructuralPattern(p)) score += 2;
+            if (IsStartsWithNumber(p)) score += 2;
 
             if (IsHeadingByPosition(p, allParagraphs)) score += 2;
+
+            if (IsAllCapital(p)) score += 2;
 
             if (score > 2) return true;
 
@@ -127,21 +131,58 @@ namespace FormatingLib
         private static bool IsTextShort(Paragraph paragraph)
         {
             var text = paragraph.InnerText.Trim();
-            return text.Length > 0 && text.Length < 200;
+            return text.Length > 0 && text.Length < 100;
         }
 
-        private static bool IsHeadingByStructuralPattern(Paragraph paragraph)
+        private static bool IsAllCapital(Paragraph p)
         {
-            var text = paragraph.InnerText.Trim();
+            string text = p.InnerText.Replace(" ","");
             if (text == null || text.Length == 0)
             {
                 return false;
             }
-            bool startsWithNumber = char.IsNumber(text[0]);
-            bool isInNumberedList = paragraph.ParagraphProperties?.NumberingProperties?.NumberingId != null;
 
-            return startsWithNumber && !isInNumberedList;
-                
+            return text.All(c => char.IsUpper(c));
+        }
+        private static bool IsInNumberedList(Paragraph p, IEnumerable<Paragraph> allParagraphs)
+        {
+            bool isStartsWithNumber = IsStartsWithNumber(p);
+
+            int index = allParagraphs.ToList().IndexOf(p);
+
+            bool isListAbove;
+
+            if (index < 2)
+            {
+                isListAbove = false;
+            }
+            else
+            {
+                isListAbove = IsStartsWithNumber(allParagraphs.ElementAt(index - 1)) && IsStartsWithNumber(allParagraphs.ElementAt(index - 2));
+            }
+            
+            bool isListBellow;
+
+            if (index > allParagraphs.Count() - 2)
+            {
+                isListBellow = false;
+            }
+            else
+            {
+                isListBellow = IsStartsWithNumber(allParagraphs.ElementAt(index + 1)) && IsStartsWithNumber(allParagraphs.ElementAt(index + 2));
+            }
+
+            return isStartsWithNumber && (isListAbove || isListBellow);
+        }
+
+        private static bool IsStartsWithNumber(Paragraph p)
+        {
+            string text = p.InnerText.Trim();
+            if (text == null || text.Length == 0)
+            {
+                return false;
+            }
+            return char.IsNumber(text[0]);
         }
 
         private static bool IsHeadingByPosition(Paragraph p, IEnumerable<Paragraph> allParagraphs)
@@ -378,6 +419,15 @@ namespace FormatingLib
                 prop.Underline = null;
 
                 prop.Color = null;
+
+                var runFonts1 = new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", ComplexScript = "Times New Roman" };
+                if (prop.RunFonts != null)
+                    prop.RunFonts.Remove();
+                prop.Append(runFonts1);
+                
+                if (prop.FontSize != null)
+                        prop.FontSize.Remove();
+                prop.Append(new FontSize() { Val = "28"});
             }
         }
     }
