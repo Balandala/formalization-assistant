@@ -1,4 +1,6 @@
 import uuid
+
+from pydantic import BaseModel
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import enum

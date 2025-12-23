@@ -5,25 +5,23 @@ const dropZoneText = document.getElementById('dropZoneText');
 const titleForm = document.getElementById('titleForm');
 const modeUpload = document.getElementById('mode-upload');
 const modeTitle = document.getElementById('mode-title');
+const addTitleCheckbox = document.getElementById('addTitleCheckbox');
 
 let pollInterval = null;
 let currentDocId = null;
 
+const container = dropZone.parentElement;
 
 function updateMode() {
-    const addTitleCheckbox = document.getElementById('addTitleCheckbox');
-
     titleForm.style.display = 'none';
     addTitleCheckbox.style.display = 'none';
 
     if (modeTitle.checked) {
         titleForm.style.display = 'block';
         dropZoneText.textContent = 'Кликните, чтобы сгенерировать титульный лист';
-        fileInput.style.display = 'none';
     } else {
         dropZoneText.textContent = 'Перетащите сюда файл .docx или кликните, чтобы выбрать';
-        fileInput.style.display = 'none';
-        addTitleCheckbox.style.display = 'block'; // Показываем чекбокс только в режиме загрузки
+        addTitleCheckbox.style.display = 'block';
     }
 }
 
@@ -35,15 +33,13 @@ updateMode();
 
 dropZone.addEventListener('click', () => {
     if (modeTitle.checked) {
-
-        const valid = document.getElementById('titleForm').checkValidity();
+        const valid = titleForm.checkValidity();
         if (!valid) {
             alert('Заполните все поля для титульного листа');
             return;
         }
         generateTitle();
     } else {
-
         fileInput.click();
     }
 });
@@ -77,24 +73,29 @@ async function handleFile(file) {
         return;
     }
 
-    // Сброс статуса и формы
     statusDiv.innerHTML = '';
-
     const includeTitle = document.getElementById('includeTitle').checked;
 
     if (!includeTitle) {
-        await uploadFile(file); // Просто загружаем
+        await uploadFile(file);
         return;
     }
 
-    // Если чекбокс выбран — показываем форму и кнопку
-    titleForm.style.display = 'block';
+
+    const formClone = titleForm.cloneNode(true);
+    formClone.id = 'titleFormActive';
+    formClone.style.display = 'block';
+
+
+    container.innerHTML = '';
+    container.appendChild(formClone);
+
 
     const submitButton = document.createElement('button');
-    submitButton.className = 'btn btn-primary mt-2';
+    submitButton.className = 'btn btn-primary mt-3';
     submitButton.textContent = 'Сгенерировать с титульным листом';
     submitButton.onclick = async () => {
-        const valid = titleForm.checkValidity();
+        const valid = formClone.checkValidity();
         if (!valid) {
             alert('Заполните все поля');
             return;

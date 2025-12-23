@@ -10,3 +10,11 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class FormattingConfig(BaseModel):
+    OverrideFormatting: bool = False
+    NormalText: bool = True
+    Headings: bool = True
+    Captions: bool = True
+    PagesNumeration: bool = True
+    PageFields: bool = True

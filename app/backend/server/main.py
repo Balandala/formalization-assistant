@@ -195,31 +195,26 @@ async def upload_with_title(
     title_path = os.path.join(UPLOAD_FOLDER, f"{doc_id}_title.docx")
     final_path = os.path.join(UPLOAD_FOLDER, f"{doc_id}_final.docx")
 
-    # 1. Сохраняем загруженный файл
+
     try:
         async with aiofiles.open(temp_input_path, 'wb') as f:
             while chunk := await file.read(1024 * 1024):
                 await f.write(chunk)
 
-        # 2. Обрабатываем документ через микросервис НАПРЯМУЮ (без process_doc)
-        # Копируем логику запроса, которая была в process_doc, но без БД
+
         URL = "https://127.0.0.1:7272/process"
         abs_input_path = os.path.abspath(temp_input_path)
 
-        # Используем requests или httpx. Лучше httpx чтобы не блочить, но для скорости можно requests как было
-        # Если микросервис перезаписывает файл in-place:
+
         proc_response = requests.post(URL, json={"filepath": abs_input_path}, verify=False)
 
         if proc_response.status_code != 200:
             raise HTTPException(status_code=500, detail="Ошибка обработки файла микросервисом")
 
-        # Считаем, что processed_path это тот же temp_input_path, если микросервис делает перезапись
-        # Если микросервис создает новый файл, вам нужно знать как он его называет.
-        # Судя по коду process_doc, он отправляет путь и всё. Скорее всего файл меняется на месте.
-        # Поэтому:
+
         processed_actual_path = temp_input_path
 
-        # 3. Генерируем титульный лист через микросервис (это у вас уже было)
+
         title_data = TitleData(
             institute=institute, work_type=work_type, subject=subject,
             theme=theme, author=author, group=group, chief=chief, post=post
@@ -237,14 +232,13 @@ async def upload_with_title(
         with open(title_path, 'wb') as f:
             f.write(resp.content)
 
-        # 4. Склеиваем: титул + обработанный документ
-        # Используем processed_actual_path (который равен temp_input_path)
+
         if not os.path.exists(processed_actual_path):
             raise HTTPException(status_code=500, detail="Обработанный файл исчез")
 
         merge_title_with_document(title_path, processed_actual_path, final_path)
 
-        # 5. Сохраняем в БД
+
         new_doc = Document(
             id=doc_id,
             filename=file.filename,
@@ -256,10 +250,10 @@ async def upload_with_title(
         await db.commit()
         await db.refresh(new_doc)
 
-        # Удаляем временные файлы
+
         remove_file(temp_input_path)
         remove_file(title_path)
-        # processed_path мы не создавали, если микросервис делал in-place, он уже удален выше
+
 
         return new_doc
 
