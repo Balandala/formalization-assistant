@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -10,4 +12,8 @@ class TitleData(BaseModel):
     group: str
     chief: str
     post: str
-    year: datetime = datetime.now().year
+    year: int = datetime.now().year
+
+class GenerateTitleRequest(BaseModel):
+    doc_id: uuid.UUID
+    data: TitleData

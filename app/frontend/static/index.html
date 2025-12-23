@@ -9,27 +9,80 @@
     <title>DocAssistant</title>
 </head>
 <body class="p-4">
-  <h3>DocAssistant</h3>
+    <h3>DocAssistant</h3>
 
-  <div class="container">
+    <div class="container">
 
-    <div class="drop-zone" id="dropZone">
-        <p>Перетащите сюда файл .docx или кликните, чтобы выбрать</p>
-        <i class="bi bi-cloud-upload display-4 text-primary"></i>
+        <div class="mb-3">
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="mode" id="mode-upload" autocomplete="off" checked>
+                <label class="btn btn-outline-primary" for="mode-upload">Загрузить документ</label>
+
+                <input type="radio" class="btn-check" name="mode" id="mode-title" autocomplete="off">
+                <label class="btn btn-outline-primary" for="mode-title">Только титульный лист</label>
+            </div>
+        </div>
+
+
+        <!-- ... предыдущий код ... -->
+        <div class="drop-zone" id="dropZone">
+            <p id="dropZoneText">Перетащите сюда файл .docx или кликните, чтобы выбрать</p>
+            <i class="bi bi-cloud-upload display-4 text-primary"></i>
+        </div>
+        <input type="file" id="fileInput" accept=".docx" style="display: none;">
+
+        <!-- Чекбокс для добавления титульного листа (только в режиме загрузки) -->
+        <div class="mb-3" id="addTitleCheckbox" style="display: none;">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="includeTitle">
+                <label class="form-check-label" for="includeTitle">
+                    Добавить титульный лист к документу
+                </label>
+            </div>
+        </div>
+
+        <form id="titleForm" style="display: none;" class="mt-3 p-3 border rounded bg-light">
+<!-- ... остальной код формы ... -->            <h6>Введите данные для титульного листа</h6>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Институт</label>
+                    <input type="text" class="form-control" id="institute" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Тип работы</label>
+                    <input type="text" class="form-control" id="work_type" value="Курсовая работа" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Дисциплина</label>
+                    <input type="text" class="form-control" id="subject" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Тема</label>
+                    <input type="text" class="form-control" id="theme" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Автор</label>
+                    <input type="text" class="form-control" id="author" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Группа</label>ф
+                    <input type="text" class="form-control" id="group" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Руководитель</label>
+                    <input type="text" class="form-control" id="chief" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Должность</label>
+                    <input type="text" class="form-control" id="post" value="Преподаватель" required>
+                </div>
+            </div>
+        </form>
+
+
+        <div class="mt-3" id="status"></div>
     </div>
 
-
-    <input type="file" id="fileInput" accept=".docx" style="display: none;">
-
-
-<!--    <div class="mb-3 mt-3">-->
-<!--      <label for="googleDocLink" class="form-label">Или вставьте ссылку на Google Docs</label>-->
-<!--      <input class="form-control" type="url" id="googleDocLink" placeholder="https://docs.google.com/document/d/...">-->
-<!--    </div>-->
-
-    <div class="mt-3" id="status"></div>
-  </div>
-
-  <script src="../scripts/main.js"></script>
+    <script src="../scripts/main.js"></script>
 </body>
 </html>
