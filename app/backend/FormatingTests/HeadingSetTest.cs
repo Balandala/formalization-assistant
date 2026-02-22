@@ -1,6 +1,7 @@
 ﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using FormatingLib;
+using FormatingLib.Model;
 using System.Security.Cryptography;
 
 namespace FormatingTests
@@ -13,6 +14,7 @@ namespace FormatingTests
         {
             // Arrange
             String path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../resources/");
+            WordProcessor wp = new WordProcessor(new FormatingConfiguration());
             string src = "testDoc.docx";
             List<int> paragraphIndexes;
             WordprocessingDocument doc;
@@ -23,7 +25,7 @@ namespace FormatingTests
             }
 
             // Act
-            WordProcessor.Process(doc);
+            wp.Process(doc);
 
             // Assert
             int score = 0;

@@ -1,3 +1,3 @@
-start .\app\backend\csharp_backend\bin\Debug\net10.0\csharp_backend.exe
+start dotnet run enviroment=development --project .\app\backend\csharp_backend\csharp_backend.csproj
 .venv\Scripts\python.exe -m uvicorn app.backend.server.main:app
 
