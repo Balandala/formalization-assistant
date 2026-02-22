@@ -13,3 +13,5 @@
 `start dotnet run enviroment=development --project .\app\backend\csharp_backend\csharp_backend.csproj`
 
 `.venv\Scripts\python.exe -m uvicorn app.backend.server.main:app`
+
+Приложение развернётся локально на `http://127.0.0.1:8000/main`
