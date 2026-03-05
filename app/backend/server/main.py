@@ -125,7 +125,7 @@ async def get_main_page():
 
 
 async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    URL = "https://127.0.0.1:7272/process"
+    URL = "http://formatter-service:7272/process"
     absPath = os.path.abspath(filepath)
     response = requests.post(URL, json={"filepath":absPath}, verify= False)
     if response.status_code == 200:
@@ -148,7 +148,7 @@ async def generate_title_endpoint(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
-                "http://127.0.0.1:7777/generate-title",
+                "http://title-service:7777/generate-title",
                 json={
                     "doc_id": str(doc_id),
                     "data": data.model_dump()
@@ -205,7 +205,7 @@ async def upload_with_title(
                 await f.write(chunk)
 
 
-        URL = "https://127.0.0.1:7272/process"
+        URL = "http://formatter-service:7272/process"
         abs_input_path = os.path.abspath(temp_input_path)
 
 
@@ -225,7 +225,7 @@ async def upload_with_title(
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "http://127.0.0.1:7777/generate-title",
+                "http://title-service:7777/generate-title",
                 json={"doc_id": str(doc_id), "data": title_data.model_dump()}
             )
 

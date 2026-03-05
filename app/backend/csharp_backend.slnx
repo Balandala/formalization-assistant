@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="csharp_backend/csharp_backend.csproj" />
-  <Project Path="FormatingLib/FormatingLib.csproj" />
-  <Project Path="FormatingTests/FormatingTests.csproj" />
-</Solution>

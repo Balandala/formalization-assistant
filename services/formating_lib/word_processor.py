@@ -2,8 +2,10 @@ from docx import Document
 from docx.oxml.shared import OxmlElement, qn
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from . import StylesLib
+
 from .FormatingConfiguration import FormatingConfiguration
+
+import styles as StylesLib
 
 import os
 
@@ -20,12 +22,12 @@ class WordProcessor:
 
         doc = Document(filepath)
         self.process(doc)
-        doc.save(filepath)  # Перезаписываем исходный файл
+        doc.save(filepath)
 
     def process(self, doc):
         self._doc_init(doc)
         self._override_styles(doc)
-        paragraphs = list(doc.paragraphs)  # python-docx не поддерживает Descendants напрямую
+        paragraphs = list(doc.paragraphs)
 
         for i, p in enumerate(paragraphs):
             if self.config.override_formatting:
@@ -52,8 +54,7 @@ class WordProcessor:
 
     def _override_styles(self, doc):
         styles_part = doc.styles._element.getparent()
-        # Удаляем старые стили и добавляем свои
-        styles_part.clear()  # Осторожно! Это удаляет все стили.
+        styles_part.clear()
         styles_part.append(StylesLib.make_text_style())
         styles_part.append(StylesLib.make_heading_style())
         styles_part.append(StylesLib.make_caption_style())
@@ -79,7 +80,6 @@ class WordProcessor:
         return score > 2
 
     def _is_in_table(self, p):
-        # python-docx не даёт прямого доступа к родителям — нужно проверять через XML
         parent = p._element.getparent()
         while parent is not None:
             if parent.tag.endswith("tbl"):
@@ -105,7 +105,6 @@ class WordProcessor:
         if not text:
             return False
         starts_with_number = text[0].isdigit()
-        # Проверка на нумерованный список — упрощённо
         is_in_numbered_list = bool(p.style.name.startswith("List"))
         return starts_with_number and not is_in_numbered_list
 
@@ -128,7 +127,6 @@ class WordProcessor:
         return False
 
     def _is_contains_media(self, p):
-        # Проверка на изображение
         for drawing in p._element.iter(qn("w:drawing")):
             if drawing.find(".//" + qn("pic:pic")) is not None:
                 return True
@@ -142,7 +140,6 @@ class WordProcessor:
             run.font.color.rgb = None
 
     def _add_footer(self, doc):
-        # Создание нижнего колонтитула с номером страницы
         section = doc.sections[0]
         footer = section.footer
         paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()

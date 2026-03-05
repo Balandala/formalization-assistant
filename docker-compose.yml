@@ -13,6 +13,12 @@ services:
       - postgres_data:/var/lib/postgresql
     networks:
       - docnet
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   formatter-service:
     build:
@@ -55,9 +61,12 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - formatter-service
-      - title-service
-      - postgres
+      postgres:
+        condition: service_healthy
+      formatter-service:
+        condition: service_started
+      title-service:
+        condition: service_started
     volumes:
       - ./uploads:/app/uploads
       - ./app/frontend:/app/frontend

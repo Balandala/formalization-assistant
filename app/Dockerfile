@@ -7,11 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 COPY ./shared /app/shared
-
-
 COPY ./app/backend /app/backend
-
-
 COPY ./app/frontend /app/frontend
 
 

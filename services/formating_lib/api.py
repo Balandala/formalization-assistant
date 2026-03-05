@@ -4,7 +4,7 @@ from typing import Optional
 import os
 
 
-# from FormatingLib import WordProcessor, FormatingConfiguration
+from word_processor import WordProcessor, FormatingConfiguration
 
 app = FastAPI(title="Formatting Lib")
 
