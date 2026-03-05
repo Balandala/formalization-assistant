@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - docnet
+
+  formatter-service:
+    build:
+      context: .
+      dockerfile: services/formating_lib/Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "7272:7272"
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - docnet
+
+  title-service:
+    build:
+      context: .
+      dockerfile: services/title_generator/Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./uploads:/app/titles
+    networks:
+      - docnet
+
+  main-app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - formatter-service
+      - title-service
+      - postgres
+    volumes:
+      - ./uploads:/app/uploads
+      - ./app/frontend:/app/frontend
+    networks:
+      - docnet
+
+networks:
+  docnet:
+    driver: bridge
+
+volumes:
+  postgres_data:

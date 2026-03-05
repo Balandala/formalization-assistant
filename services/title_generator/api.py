@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from shared.models import TitleData, GenerateTitleRequest
 import os
 
-from .service import generate_document
+from service import generate_document
 
 app = FastAPI(title="Title Generator Microservice")
 
@@ -35,5 +35,5 @@ async def generate_title(request: GenerateTitleRequest):
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"Ошибка: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка генерации: {str(e)}")

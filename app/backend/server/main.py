@@ -15,18 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from docx import Document as DocxDocument
 import tempfile
 
-from app.backend.server.database import engine, Base, get_db
-from app.backend.server.models import Document, TaskStatus
-from app.backend.server.schemas import DocumentResponse
+from backend.server.database import engine, Base, get_db
+from backend.server.models import Document, TaskStatus
+from backend.server.schemas import DocumentResponse
 from shared.models import TitleData
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-FRONTEND_DIR = os.path.join(BASE_DIR, "../../frontend")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+FRONTEND_STATIC_DIR = os.path.join(FRONTEND_DIR, "static")
 
 
 @asynccontextmanager
@@ -118,7 +118,10 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @app.get("/main")
 async def get_main_page():
-    return FileResponse("app/frontend/static/index.html")
+    filename = os.path.join(FRONTEND_STATIC_DIR, "index.html")
+    if not os.path.exists(filename):
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(filename)
 
 
 async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):

@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+asyncpg
+pydantic
+python-multipart
+aiofiles
+requests
+httpx
+python-docx
+docxcompose
+python-dotenv

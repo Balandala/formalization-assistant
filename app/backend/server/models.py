@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
 import enum
-from app.backend.server.database import Base
+from backend.server.database import Base
 
 class TaskStatus(str, enum.Enum):
     PENDING = "PENDING"
