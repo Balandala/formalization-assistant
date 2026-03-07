@@ -2,16 +2,24 @@ from docx import Document
 from docx.oxml.shared import OxmlElement, qn
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
 
-from .FormatingConfiguration import FormatingConfiguration
 
-import styles as StylesLib
+from formating_config import Config
+
+import styles as styles_lib
 
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class WordProcessor:
-    def __init__(self, config: FormatingConfiguration):
+    def __init__(self, config: Config):
         self.config = config
 
     def process_file(self, filepath: str):
@@ -20,9 +28,19 @@ class WordProcessor:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"File not found: {filepath}")
 
-        doc = Document(filepath)
-        self.process(doc)
-        doc.save(filepath)
+        try:
+            logger.info(f"Opening document: {filepath}")
+            doc = Document(filepath)
+            logger.info("Document initialized successfully")
+
+
+            self.process(doc)
+
+            doc.save(filepath)
+            logger.info("Document saved successfully")
+        except Exception as e:
+            logger.exception(f"Failed to process document {filepath} with Exception {e}")
+            raise
 
     def process(self, doc):
         self._doc_init(doc)
@@ -34,30 +52,59 @@ class WordProcessor:
                 self._override_run_properties(p)
 
             if self.config.headings and self._is_title(p, paragraphs, i):
-                p.style = StylesLib.StyleIds.Heading1
+                p.style = styles_lib.StyleIds.Heading1
             elif self.config.captions and self._is_after_media(p, paragraphs, i):
-                p.style = StylesLib.StyleIds.Media
+                p.style = styles_lib.StyleIds.Media
             elif self._is_contains_media(p):
-                p.style = StylesLib.StyleIds.Heading1
+                p.style = styles_lib.StyleIds.Heading1
             elif self.config.normal_text:
-                p.style = StylesLib.StyleIds.Normal
+                p.style = styles_lib.StyleIds.Normal
 
-        if self.config.pages_numeration:
+        if self.config.pages_numerations:
             self._add_footer(doc)
         if self.config.page_fields:
             self._add_page_margins(doc)
 
     def _doc_init(self, doc):
-        if not doc._element.body:
-            doc._element.body = OxmlElement("w:body")
-            doc._element.append(doc._element.body)
+        if doc._element.body is None:
+            body = OxmlElement("w:body")
+            doc._element.append(body)
 
     def _override_styles(self, doc):
-        styles_part = doc.styles._element.getparent()
-        styles_part.clear()
-        styles_part.append(StylesLib.make_text_style())
-        styles_part.append(StylesLib.make_heading_style())
-        styles_part.append(StylesLib.make_caption_style())
+        # Это не функция это пиздец трогать только в антирадиционном костюме
+        try:
+            styles_part = doc.part.package.part_related_by(RT.STYLES)
+        except KeyError:
+            styles_part = None
+
+        if styles_part is None:
+            pkg = doc.part.package
+            uri = "/word/styles.xml"
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
+
+
+            found_parts = [p for p in pkg.iter_parts() if p.partname == uri]
+            if found_parts:
+                styles_part = found_parts[0]
+                styles_element = styles_part.element
+            else:
+                styles_xml = f'<w:styles {nsdecls("w")}></w:styles>'
+                styles_element = parse_xml(styles_xml)
+                styles_part = pkg._add_part(uri, content_type, styles_element)
+
+            doc.part.relate_to(styles_part, RT.STYLES)
+            logger.info("Created new styles.xml and relationship")
+        else:
+            styles_element = styles_part.element
+
+        styles_element.clear()
+        styles_element.append(styles_lib.make_text_style())
+        styles_element.append(styles_lib.make_heading_style())
+        styles_element.append(styles_lib.make_caption_style())
+
+        if hasattr(doc, '_styles'):
+            delattr(doc, '_styles')
+        _ = doc.styles  # Принудительно перезагружается кэш стилей
 
     def _is_title(self, p, all_paragraphs, index):
         if not p.text.strip():

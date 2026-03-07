@@ -4,7 +4,9 @@ from typing import Optional
 import os
 
 
-from word_processor import WordProcessor, FormatingConfiguration
+
+from word_processor import WordProcessor
+from formating_config import Config
 
 app = FastAPI(title="Formatting Lib")
 
@@ -18,9 +20,9 @@ def process_file(request: ProcessRequest):
         raise HTTPException(status_code=400, detail="File path is required and must point to an existing file")
 
     if request.config is None:
-        config = FormatingConfiguration.return_default()
+        config = Config()
     else:
-        config = FormatingConfiguration(**request.config)
+        config = Config(**request.config)
 
     try:
         wp = WordProcessor(config)
