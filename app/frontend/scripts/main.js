@@ -202,10 +202,14 @@ async function generateTitle() {
         statusDiv.innerHTML = `
             <div class="alert alert-success">
                 <strong>✅ Титульный лист готов!</strong>
-                <br>
-                <button class="btn btn-success mt-2" onclick="downloadFile('${result.id}')">
-                    Скачать титульный лист
-                </button>
+                <div class="mt-2">
+                    <button class="btn btn-outline-primary me-2" onclick="openPreview('${result.id}')">
+                        <i class="bi bi-eye"></i> Предпросмотр
+                    </button>
+                    <button class="btn btn-success" onclick="downloadFile('${result.id}')">
+                        <i class="bi bi-download"></i> Скачать титульный лист
+                    </button>
+                </div>
             </div>
         `;
     } catch (error) {
@@ -213,6 +217,66 @@ async function generateTitle() {
     }
 }
 
+
+async function fetchReport(docId) {
+    try {
+        const response = await fetch(`/report/${docId}`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
+
+function renderReport(report) {
+    if (!report) return '';
+
+    const items = [];
+    if (report.paragraphs_formatted > 0)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Отформатировано параграфов: <strong>${report.paragraphs_formatted}</strong></li>`);
+    if (report.headings_detected > 0)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Определено заголовков: <strong>${report.headings_detected}</strong></li>`);
+    if (report.figures_numbered > 0)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Пронумеровано рисунков: <strong>${report.figures_numbered}</strong></li>`);
+    if (report.tables_numbered > 0)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Пронумеровано таблиц: <strong>${report.tables_numbered}</strong></li>`);
+    if (report.page_numbering_added)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Добавлена нумерация страниц</li>`);
+    if (report.page_fields_set)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Установлены поля страницы</li>`);
+
+    if (items.length === 0) return '';
+
+    let detailsHtml = '';
+    if (report.details && report.details.length > 0) {
+        const detailItems = report.details.map(d => `<li class="list-group-item list-group-item-light small">${d}</li>`).join('');
+        detailsHtml = `
+            <div class="mt-2">
+                <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reportDetails" role="button">
+                    <i class="bi bi-list-ul"></i> Подробности (${report.details.length})
+                </a>
+                <div class="collapse mt-2" id="reportDetails">
+                    <ul class="list-group list-group-flush">${detailItems}</ul>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="card mt-3">
+            <div class="card-header"><i class="bi bi-clipboard-check"></i> Отчёт о форматировании</div>
+            <ul class="list-group list-group-flush">${items.join('')}</ul>
+            ${detailsHtml}
+        </div>
+    `;
+}
+
+function openPreview(docId) {
+    const frame = document.getElementById('previewFrame');
+    frame.src = `/preview/${docId}`;
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
 
 function startPolling(docId) {
     statusDiv.innerHTML = `
@@ -230,14 +294,21 @@ function startPolling(docId) {
             const result = await response.json();
             if (result.status === 'COMPLETED') {
                 clearInterval(pollInterval);
+                const report = await fetchReport(docId);
+                const reportHtml = renderReport(report);
                 statusDiv.innerHTML = `
                     <div class="alert alert-success">
                         <strong>✅ Готово!</strong>
-                        <br>
-                        <button class="btn btn-success mt-2" onclick="downloadFile('${docId}')">
-                            Скачать файл
-                        </button>
+                        <div class="mt-2">
+                            <button class="btn btn-outline-primary me-2" onclick="openPreview('${docId}')">
+                                <i class="bi bi-eye"></i> Предпросмотр
+                            </button>
+                            <button class="btn btn-success" onclick="downloadFile('${docId}')">
+                                <i class="bi bi-download"></i> Скачать файл
+                            </button>
+                        </div>
                     </div>
+                    ${reportHtml}
                 `;
             } else if (result.status === 'FAILED') {
                 clearInterval(pollInterval);

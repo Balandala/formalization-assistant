@@ -3,17 +3,16 @@ import uuid
 import aiofiles
 import requests
 import httpx
+import mammoth
 from docxcompose.composer import Composer
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, APIRouter
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from fastapi.background import BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from docx import Document as DocxDocument
-import tempfile
 
 from backend.server.database import engine, Base, get_db
 from backend.server.models import Document, TaskStatus
@@ -124,15 +123,27 @@ async def get_main_page():
     return FileResponse(filename)
 
 
-async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    URL = "http://formatter-service:7272/process"
-    absPath = os.path.abspath(filepath)
-    response = requests.post(URL, json={"filepath":absPath}, verify= False)
-    if response.status_code == 200:
-        stat = TaskStatus.COMPLETED.value
+async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession) -> None:
+    url = "http://formatter-service:7272/process"
+    abs_path = os.path.abspath(filepath)
+
+    try:
+        response = requests.post(url, json={"filepath": abs_path}, timeout=120)
+    except requests.RequestException:
+        response = None
+
+    if response is not None and response.status_code == 200:
+        status = TaskStatus.COMPLETED.value
+        report = response.json().get("report")
     else:
-        stat = TaskStatus.FAILED.value
-    stmt = update(Document).where(Document.id == doc_id).values(status=stat)
+        status = TaskStatus.FAILED.value
+        report = None
+
+    stmt = (
+        update(Document)
+        .where(Document.id == doc_id)
+        .values(status=status, report=report)
+    )
     await db.execute(stmt)
     await db.commit()
 
@@ -209,10 +220,12 @@ async def upload_with_title(
         abs_input_path = os.path.abspath(temp_input_path)
 
 
-        proc_response = requests.post(URL, json={"filepath": abs_input_path}, verify=False)
+        proc_response = requests.post(URL, json={"filepath": abs_input_path}, timeout=120)
 
         if proc_response.status_code != 200:
             raise HTTPException(status_code=500, detail="Ошибка обработки файла микросервисом")
+
+        formatting_report = proc_response.json().get("report")
 
 
         processed_actual_path = temp_input_path
@@ -246,7 +259,8 @@ async def upload_with_title(
             id=doc_id,
             filename=file.filename,
             path=final_path,  # Ссылка на итоговый файл
-            status=TaskStatus.COMPLETED.value
+            status=TaskStatus.COMPLETED.value,
+            report=formatting_report
         )
 
         db.add(new_doc)
@@ -268,6 +282,46 @@ async def upload_with_title(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+@app.get("/report/{doc_id}")
+async def get_report(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Документ не найден")
+    if doc.report is None:
+        raise HTTPException(status_code=404, detail="Отчёт недоступен")
+    return doc.report
+
+
+@app.get("/preview/{doc_id}")
+async def get_preview(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Документ не найден")
+    if not os.path.exists(doc.path):
+        raise HTTPException(status_code=500, detail="Файл не найден на сервере")
+
+    with open(doc.path, "rb") as docx_file:
+        result = mammoth.convert_to_html(docx_file)
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: 'Times New Roman', serif; font-size: 14pt; padding: 40px; max-width: 800px; margin: 0 auto; }}
+        img {{ max-width: 100%; height: auto; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+        td, th {{ border: 1px solid #ccc; padding: 6px; }}
+    </style>
+</head>
+<body>{result.value}</body>
+</html>"""
+
+    return HTMLResponse(content=html_content)
+
 
 app.include_router(router)
 

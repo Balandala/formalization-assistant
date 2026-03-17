@@ -1,8 +1,7 @@
 import uuid
 
-from pydantic import BaseModel
 from sqlalchemy import Column, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSON
 import enum
 from backend.server.database import Base
 
@@ -19,4 +18,5 @@ class Document(Base):
     filename = Column(String, nullable=False)
     path = Column(String, nullable=False)
     status = Column(String, default=TaskStatus.PENDING.value, nullable=False)
+    report = Column(JSON, nullable=True)
 

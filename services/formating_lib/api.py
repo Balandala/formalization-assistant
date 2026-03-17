@@ -26,7 +26,7 @@ def process_file(request: ProcessRequest):
 
     try:
         wp = WordProcessor(config)
-        wp.process_file(request.filepath)
-        return {"status": "ok", "message": "File processed successfully"}
+        report = wp.process_file(request.filepath)
+        return {"status": "ok", "message": "File processed successfully", "report": report}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Server raised an exception: {str(e)}")
