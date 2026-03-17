@@ -10,4 +10,3 @@ httpx
 python-docx
 docxcompose
 python-dotenv
-mammoth

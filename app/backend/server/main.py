@@ -1,13 +1,13 @@
 import os
 import uuid
+import subprocess
 import aiofiles
 import requests
 import httpx
-import mammoth
 from docxcompose.composer import Composer
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, APIRouter
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from fastapi.staticfiles import StaticFiles
@@ -303,24 +303,22 @@ async def get_preview(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not os.path.exists(doc.path):
         raise HTTPException(status_code=500, detail="Файл не найден на сервере")
 
-    with open(doc.path, "rb") as docx_file:
-        result = mammoth.convert_to_html(docx_file)
+    pdf_path = doc.path.rsplit(".", 1)[0] + ".pdf"
+    if not os.path.exists(pdf_path):
+        try:
+            subprocess.run(
+                ["libreoffice", "--headless", "--convert-to", "pdf",
+                 "--outdir", os.path.dirname(doc.path), doc.path],
+                check=True, timeout=60,
+                capture_output=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            raise HTTPException(status_code=500, detail=f"Ошибка конвертации в PDF: {e}")
 
-    html_content = f"""<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <style>
-        body {{ font-family: 'Times New Roman', serif; font-size: 14pt; padding: 40px; max-width: 800px; margin: 0 auto; }}
-        img {{ max-width: 100%; height: auto; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
-        td, th {{ border: 1px solid #ccc; padding: 6px; }}
-    </style>
-</head>
-<body>{result.value}</body>
-</html>"""
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=500, detail="PDF не был создан")
 
-    return HTMLResponse(content=html_content)
+    return FileResponse(pdf_path, media_type="application/pdf")
 
 
 app.include_router(router)
