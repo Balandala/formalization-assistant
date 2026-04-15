@@ -1,8 +1,9 @@
-.container{
-    width: 25%;
-    height: 25%;
-    margin-top: 20vh;
-    max-height: 80vh;
+.container {
+    width: 40%;
+    min-width: 500px;
+    margin-top: 10vh;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 

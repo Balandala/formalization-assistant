@@ -1,5 +1,6 @@
 import os
 import uuid
+import subprocess
 import aiofiles
 import requests
 import httpx
@@ -9,24 +10,22 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, API
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from fastapi.background import BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from docx import Document as DocxDocument
-import tempfile
 
-from app.backend.server.database import engine, Base, get_db
-from app.backend.server.models import Document, TaskStatus
-from app.backend.server.schemas import DocumentResponse
+from backend.server.database import engine, Base, get_db
+from backend.server.models import Document, TaskStatus
+from backend.server.schemas import DocumentResponse
 from shared.models import TitleData
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-FRONTEND_DIR = os.path.join(BASE_DIR, "../../frontend")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+FRONTEND_STATIC_DIR = os.path.join(FRONTEND_DIR, "static")
 
 
 @asynccontextmanager
@@ -118,18 +117,33 @@ async def get_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @app.get("/main")
 async def get_main_page():
-    return FileResponse("app/frontend/static/index.html")
+    filename = os.path.join(FRONTEND_STATIC_DIR, "index.html")
+    if not os.path.exists(filename):
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(filename)
 
 
-async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    URL = "https://127.0.0.1:7272/process"
-    absPath = os.path.abspath(filepath)
-    response = requests.post(URL, json={"filepath":absPath}, verify= False)
-    if response.status_code == 200:
-        stat = TaskStatus.COMPLETED.value
+async def process_doc(filepath: str, doc_id: uuid.UUID, db: AsyncSession) -> None:
+    url = "http://formatter-service:7272/process"
+    abs_path = os.path.abspath(filepath)
+
+    try:
+        response = requests.post(url, json={"filepath": abs_path}, timeout=120)
+    except requests.RequestException:
+        response = None
+
+    if response is not None and response.status_code == 200:
+        status = TaskStatus.COMPLETED.value
+        report = response.json().get("report")
     else:
-        stat = TaskStatus.FAILED.value
-    stmt = update(Document).where(Document.id == doc_id).values(status=stat)
+        status = TaskStatus.FAILED.value
+        report = None
+
+    stmt = (
+        update(Document)
+        .where(Document.id == doc_id)
+        .values(status=status, report=report)
+    )
     await db.execute(stmt)
     await db.commit()
 
@@ -145,7 +159,7 @@ async def generate_title_endpoint(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
-                "http://127.0.0.1:7777/generate-title",
+                "http://title-service:7777/generate-title",
                 json={
                     "doc_id": str(doc_id),
                     "data": data.model_dump()
@@ -202,14 +216,16 @@ async def upload_with_title(
                 await f.write(chunk)
 
 
-        URL = "https://127.0.0.1:7272/process"
+        URL = "http://formatter-service:7272/process"
         abs_input_path = os.path.abspath(temp_input_path)
 
 
-        proc_response = requests.post(URL, json={"filepath": abs_input_path}, verify=False)
+        proc_response = requests.post(URL, json={"filepath": abs_input_path}, timeout=120)
 
         if proc_response.status_code != 200:
             raise HTTPException(status_code=500, detail="Ошибка обработки файла микросервисом")
+
+        formatting_report = proc_response.json().get("report")
 
 
         processed_actual_path = temp_input_path
@@ -222,7 +238,7 @@ async def upload_with_title(
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "http://127.0.0.1:7777/generate-title",
+                "http://title-service:7777/generate-title",
                 json={"doc_id": str(doc_id), "data": title_data.model_dump()}
             )
 
@@ -243,7 +259,8 @@ async def upload_with_title(
             id=doc_id,
             filename=file.filename,
             path=final_path,  # Ссылка на итоговый файл
-            status=TaskStatus.COMPLETED.value
+            status=TaskStatus.COMPLETED.value,
+            report=formatting_report
         )
 
         db.add(new_doc)
@@ -265,6 +282,44 @@ async def upload_with_title(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+@app.get("/report/{doc_id}")
+async def get_report(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Документ не найден")
+    if doc.report is None:
+        raise HTTPException(status_code=404, detail="Отчёт недоступен")
+    return doc.report
+
+
+@app.get("/preview/{doc_id}")
+async def get_preview(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Документ не найден")
+    if not os.path.exists(doc.path):
+        raise HTTPException(status_code=500, detail="Файл не найден на сервере")
+
+    pdf_path = doc.path.rsplit(".", 1)[0] + ".pdf"
+    if not os.path.exists(pdf_path):
+        try:
+            subprocess.run(
+                ["libreoffice", "--headless", "--convert-to", "pdf",
+                 "--outdir", os.path.dirname(doc.path), doc.path],
+                check=True, timeout=60,
+                capture_output=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            raise HTTPException(status_code=500, detail=f"Ошибка конвертации в PDF: {e}")
+
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=500, detail="PDF не был создан")
+
+    return FileResponse(pdf_path, media_type="application/pdf")
+
 
 app.include_router(router)
 
