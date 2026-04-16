@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from shared.models import TitleData, GenerateTitleRequest
 import os
 
-from service import generate_document
+from app.services.title_generator.service import generate_document
 
 app = FastAPI(title="Title Generator Microservice")
 

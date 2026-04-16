@@ -5,8 +5,8 @@ import os
 
 
 
-from word_processor import WordProcessor
-from formating_config import Config
+from app.services.formating_lib.word_processor import WordProcessor
+from app.services.formating_lib.formating_config import Config
 
 app = FastAPI(title="Formatting Lib")
 

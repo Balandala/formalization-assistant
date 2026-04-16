@@ -10,9 +10,9 @@ from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 from docx.text.paragraph import Paragraph
 
-from formating_config import Config
+from app.services.formating_lib.formating_config import Config
 
-import styles as styles_lib
+import app.services.formating_lib.styles as styles_lib
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
