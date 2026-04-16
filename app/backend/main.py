@@ -14,9 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from docx import Document as DocxDocument
 
-from backend.server.database import engine, Base, get_db
-from backend.server.models import Document, TaskStatus
-from backend.server.schemas import DocumentResponse
+from app.backend.database import engine, Base, get_db
+from app.backend.models import Document, TaskStatus
+from app.backend.schemas import DocumentResponse
 from shared.models import TitleData
 
 UPLOAD_FOLDER = 'uploads'

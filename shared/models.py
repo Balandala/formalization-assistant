@@ -29,4 +29,4 @@ class FormattingReport(BaseModel):
     tables_numbered: int = 0
     page_fields_set: bool = False
     page_numbering_added: bool = False
-    details: list[str] = []
+    details: list[str] = [] 

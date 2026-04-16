@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID, JSON
 import enum
-from backend.server.database import Base
+from app.backend.database import Base
 
 class TaskStatus(str, enum.Enum):
     PENDING = "PENDING"
@@ -19,4 +19,3 @@ class Document(Base):
     path = Column(String, nullable=False)
     status = Column(String, default=TaskStatus.PENDING.value, nullable=False)
     report = Column(JSON, nullable=True)
-
