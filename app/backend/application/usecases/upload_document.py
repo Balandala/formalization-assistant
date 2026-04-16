@@ -1,3 +1,6 @@
+from app.backend.domain.entities.document import Document
+
+from app.backend.application.dto.upload_document import UploadDocument
 from app.backend.application.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
@@ -20,23 +23,24 @@ class UploadDocumentUseCase:
         self.file_storage = file_storage
         self._rules = Rules()
 
-    def execute(self, document):
-        if not self._validate_document(document):
-            raise ValueError("Invalid document")
-
+    async def execute(self, upload_document: UploadDocument) -> bool:
+        if not self._validate_document(upload_document):
+            raise ValueError("Invalid document")    
         
-        return 
+        file_path = await self.file_storage.save_async(upload_document.stream, upload_document.filename)
+        document = Document(filename=upload_document.filename, path=file_path)
+        await self.document_repo.add(document)
+        # TODO: Запустить асинхронно процесс форматирования документа и обновления его статуса в репозитории
 
-    def _validate_document(self, document):
-        # Implement validation logic here
-        # For example, check if the file type is allowed and if the size is within limits
+        return True
 
-
+    def _validate_document(self, document: UploadDocument) -> bool:
+        """Валидация документа на основе правил, определенных в Rules. Проверяет тип файла и размер."""        
         file_type = document.filename.split(".")[-1].lower()
         if file_type not in self._rules.allowed_file_types:
             return False
 
-        if len(document.content) > self._rules.max_file_size_bytes:
+        if document.size > self._rules.max_file_size_bytes:
             return False
 
         return True

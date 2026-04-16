@@ -7,21 +7,21 @@ from app.backend.domain.entities.document_status import Status
 
 class DocumentRepositoryInterface(ABC):
     @abstractmethod
-    def add(self, document: Document) -> None:
-        """Добавление документа в БД"""
+    async def add(self, document: Document) -> None:
+        """Добавление документа в БД со статусом PENDING"""
         pass
 
     @abstractmethod
-    def get_by_id(self, document_id: UUID) -> Document:
+    async def get_by_id(self, document_id: UUID) -> Document:
         """Получение документа по его уникальному идентификатору."""
         pass
 
     @abstractmethod
-    def delete(self, document_id: UUID) -> None:
+    async def delete(self, document_id: UUID) -> None:
         """Удаление документа из репозитория по его уникальному идентификатору."""
         pass
 
     @abstractmethod
-    def update_status(self, document_id: UUID, status: Status) -> None:
+    async def update_status(self, document_id: UUID, status: Status) -> None:
         """Обновление статуса документа по его уникальному идентификатору."""
         pass

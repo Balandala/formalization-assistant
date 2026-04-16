@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class FormatterServiceInterface(ABC):
     @abstractmethod
-    def format(self, document_id: str) -> dict:
+    async def format(self, document_id: str) -> dict:
         """Форматирование документа
 
         Args:
