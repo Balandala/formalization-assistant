@@ -5,7 +5,7 @@ from app.backend.domain.entities.document_parts import DocParts
 
 class DocumentComposerInterface(ABC):
     @abstractmethod
-    def compose(self, doc_parts: DocParts) -> str:
+    async def compose(self, doc_parts: DocParts) -> str:
         """Компоновка частей документа
 
         Args:

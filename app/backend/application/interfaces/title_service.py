@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
 
 
+
 class TitleServiceInterface(ABC):
     @abstractmethod
-    def create_title(self, document_id: str) -> str:
+    async def create_title(self, title: dict) -> str:
         """Создание титульного листа для документа
 
         Args:
-            document_id (str): Уникальный идентификатор документа
+            title (dict): Данные для создания титульного листа
 
         Returns:
             str: Путь к титульному листу

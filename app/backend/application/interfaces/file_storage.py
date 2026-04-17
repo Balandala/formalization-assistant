@@ -5,7 +5,7 @@ from typing import BinaryIO
 class AsyncFileStorageInterface(ABC):
 
     @abstractmethod
-    async def save_async(self, file: BinaryIO, filename: str) -> str:
+    async def save(self, file: BinaryIO, filename: str) -> str:
         """Асинхронное сохранение файла в хранилище. Возвращает путь к сохраненному файлу в хранилище."""
         pass
 

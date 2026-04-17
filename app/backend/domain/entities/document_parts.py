@@ -11,4 +11,9 @@ class DocParts:
     """
     main_part_path: str 
     title_part_path: str
+
+    def __init__(self, main_part_path: str, title_part_path: str):
+        self.main_part_path = main_part_path
+        self.title_part_path = title_part_path
+    
     
