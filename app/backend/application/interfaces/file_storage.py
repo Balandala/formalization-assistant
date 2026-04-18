@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import BinaryIO
 
 
-class AsyncFileStorageInterface(ABC):
+class FileStorageRepository(ABC):
 
     @abstractmethod
     async def save(self, file: BinaryIO, filename: str) -> str:

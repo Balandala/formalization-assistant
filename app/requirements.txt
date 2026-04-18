@@ -11,3 +11,8 @@ python-docx
 docxcompose
 python-dotenv
 dishka
+minio
+pytest
+pytest-asyncio
+pytest-cov
+coverage
