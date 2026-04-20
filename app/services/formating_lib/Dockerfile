@@ -1,11 +1,11 @@
-FROM python:3.14-slim
+FROM python:3.14.4
 
 WORKDIR /app
 
-COPY ./services/formating_lib/requirements.txt .
+COPY ./app/services/formating_lib/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./services/formating_lib /app
+COPY ./app/services/formating_lib /app
 
 EXPOSE 7272
 

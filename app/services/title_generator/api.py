@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
-from shared.models import TitleData, GenerateTitleRequest
 import os
 
-from app.services.title_generator.service import generate_document
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from service import generate_document
+
+from shared.models import GenerateTitleRequest
 
 app = FastAPI(title="Title Generator Microservice")
 
@@ -25,14 +26,15 @@ async def generate_title(request: GenerateTitleRequest):
     try:
         generate_document(request.data, filename)
 
-
         if not os.path.exists(filepath):
-            raise HTTPException(status_code=500, detail=f"Сгенерированный файл {filepath} не найден")
+            raise HTTPException(
+                status_code=500, detail=f"Сгенерированный файл {filepath} не найден"
+            )
 
         return FileResponse(
             path=filepath,
             filename="generated_title.docx",
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     except Exception as e:
         print(f"Ошибка: {e}")

@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
 from typing import BinaryIO
 
+from backend.domain.entities.document import Document
+
 
 class FileStorageRepository(ABC):
-
     @abstractmethod
     async def save(self, file: BinaryIO, filename: str) -> str:
         """Асинхронное сохранение файла в хранилище. Возвращает путь к сохраненному файлу в хранилище."""
         pass
 
     @abstractmethod
-    async def get(self, file_id: str) -> BinaryIO | None:
+    async def get(self, file_id: str) -> Document | None:
         """Получение файла из хранилища по его уникальному идентификатору"""
         pass
 

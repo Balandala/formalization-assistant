@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.backend.domain.entities.document_parts import DocParts
+from backend.domain.entities.document_parts import DocParts
 
 
 class DocumentComposerInterface(ABC):

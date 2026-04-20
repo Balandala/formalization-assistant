@@ -1,11 +1,11 @@
-FROM python:3.14-slim
+FROM python:3.14.4
 
 WORKDIR /app
 
-COPY ./services/title_generator/requirements.txt .
+COPY ./app/services/title_generator/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./services/title_generator /app
+COPY ./app/services/title_generator /app
 
 COPY ./shared /app/shared
 

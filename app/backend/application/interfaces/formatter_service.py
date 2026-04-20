@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.backend.domain.entities.document import Document
+from backend.domain.entities.document import Document
 
 
 class FormatterServiceInterface(ABC):

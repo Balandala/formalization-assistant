@@ -1,10 +1,14 @@
 from uuid import UUID
 
-from app.backend.application.interfaces.document_repository import (
+from backend.application.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from app.backend.application.interfaces.file_storage import FileStorageRepository
-from app.backend.application.interfaces.pdf_converter import PdfConverterInterface
+from backend.application.interfaces.file_storage import FileStorageRepository
+from backend.application.interfaces.pdf_converter import PdfConverterInterface
+from backend.domain.exceptions import (
+    DocumentFileNotFoundError,
+    DocumentNotFoundError,
+)
 
 
 class PreviewDocumentUseCase:
@@ -19,23 +23,18 @@ class PreviewDocumentUseCase:
         self.pdf_converter = pdf_converter
 
     async def execute(self, document_id: UUID) -> str:
-        """Генерирует предварительный просмотр документа в формате PDF.
-
-        Args:
-            document_id (UUID): Идентификатор документа.
+        """Возвращает путь к PDF-превью документа, конвертируя при необходимости.
 
         Raises:
-            ValueError: Если документ не найден.
-            FileNotFoundError: Если файл не найден на сервере.
-
-        Returns:
-            str: Путь к сгенерированному PDF файлу.
-        """        
+            DocumentNotFoundError: Документ не найден.
+            DocumentFileNotFoundError: Физический файл отсутствует.
+            PdfConversionError: Ошибка конвертации в PDF.
+        """
         document = await self.document_repo.get_by_id(document_id)
         if document is None:
-            raise ValueError("Document not found")
+            raise DocumentNotFoundError("Document not found")
         path = await self.storage_repository.get_path(document.path)
         if path is None:
-            raise FileNotFoundError("File not found on server")
+            raise DocumentFileNotFoundError("File not found on server")
         pdf_path = await self.pdf_converter.convert(document.path)
         return pdf_path

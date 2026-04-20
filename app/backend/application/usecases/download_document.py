@@ -1,11 +1,16 @@
 from uuid import UUID
 
-from app.backend.application.interfaces.document_repository import (
+from backend.application.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from app.backend.application.interfaces.file_storage import FileStorageRepository
-from app.backend.domain.entities.document import Document
-from app.backend.domain.entities.document_status import Status
+from backend.application.interfaces.file_storage import FileStorageRepository
+from backend.domain.entities.document import Document
+from backend.domain.entities.document_status import Status
+from backend.domain.exceptions import (
+    DocumentFileNotFoundError,
+    DocumentNotFoundError,
+    DocumentNotReadyError,
+)
 
 
 class DownloadDocumentUseCase:
@@ -18,26 +23,19 @@ class DownloadDocumentUseCase:
         self.storage_repository = storage_repository
 
     async def execute(self, document_id: UUID) -> Document:
-        """Достает по id документ из хранилища и возвращает пользователю 
-
-        Args:
-            document_id (UUID): Идентификатор документа.
+        """Возвращает документ, готовый к скачиванию.
 
         Raises:
-            ValueError: Если документ не найден.
-            ValueError: Если документ не готов к скачиванию.
-            FileNotFoundError: Если обработанный файл не найден на сервере.
-
-
-        Returns:
-            Document: Объект документа, готового к скачиванию.
-        """        
+            DocumentNotFoundError: Документ не найден.
+            DocumentNotReadyError: Документ ещё не готов.
+            DocumentFileNotFoundError: Физический файл отсутствует.
+        """
         document = await self.document_repo.get_by_id(document_id)
         if document is None:
-            raise ValueError("Document not found")
+            raise DocumentNotFoundError("Документ не найден")
         if document.status != Status.COMPLETED:
-            raise ValueError("Document not ready")
+            raise DocumentNotReadyError("Документ не готов к скачиванию")
         path = await self.storage_repository.get_path(document.path)
         if path is None:
-            raise FileNotFoundError("Processed file not found on server")
+            raise DocumentFileNotFoundError("Обработанный файл не найден на сервере")
         return document

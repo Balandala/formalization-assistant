@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from app.backend.domain.entities.document import Document
-from app.backend.domain.entities.document_status import Status
+from backend.domain.entities.document import Document
+from backend.domain.entities.document_status import Status
 
 
 class DocumentRepositoryInterface(ABC):
@@ -22,6 +22,11 @@ class DocumentRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    async def update_status(self, document_id: UUID, status: Status) -> None:
-        """Обновление статуса документа по его уникальному идентификатору."""
+    async def update_status(
+        self,
+        document_id: UUID,
+        status: Status,
+        report: dict | None = None,
+    ) -> None:
+        """Обновление статуса (и опционально отчёта) документа по его ID."""
         pass

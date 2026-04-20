@@ -1,4 +1,4 @@
-from app.services.title_generator.service import TitleData, generate_document
+from service import TitleData, generate_document
 
 test_data = [
     TitleData(

@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from app.backend.application.interfaces.document_repository import (
+from backend.application.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from app.backend.domain.entities.document import Document
+from backend.domain.entities.document import Document
+from backend.domain.exceptions import DocumentNotFoundError
 
 
 class GetDocumentStatusUseCase:
@@ -11,18 +12,12 @@ class GetDocumentStatusUseCase:
         self.document_repo = document_repository
 
     async def execute(self, document_id: UUID) -> Document:
-        """Получает статус документа по его идентификатору.
-
-        Args:
-            document_id (UUID): Идентификатор документа.
+        """Возвращает документ с его текущим статусом.
 
         Raises:
-            ValueError: Если документ не найден.
-
-        Returns:
-            Document: Объект документа с его текущим статусом.
-        """        
+            DocumentNotFoundError: Документ не найден.
+        """
         document = await self.document_repo.get_by_id(document_id)
         if document is None:
-            raise ValueError("Document not found")
+            raise DocumentNotFoundError("Document not found")
         return document

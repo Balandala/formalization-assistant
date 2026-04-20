@@ -1,18 +1,16 @@
+import logging
 import os
 import re
-import logging
 
+import styles as styles_lib
 from docx import Document
-from docx.oxml.shared import OxmlElement, qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
+from docx.oxml.shared import OxmlElement, qn
 from docx.text.paragraph import Paragraph
-
-from app.services.formating_lib.formating_config import Config
-
-import app.services.formating_lib.styles as styles_lib
+from formating_config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,7 +59,9 @@ class WordProcessor:
             doc.save(filepath)
             logger.info("Document saved successfully")
         except Exception as e:
-            logger.exception(f"Failed to process document {filepath} with Exception {e}")
+            logger.exception(
+                f"Failed to process document {filepath} with Exception {e}"
+            )
             raise
 
         return self._report
@@ -115,13 +115,12 @@ class WordProcessor:
             uri = "/word/styles.xml"
             content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
 
-
             found_parts = [p for p in pkg.iter_parts() if p.partname == uri]
             if found_parts:
                 styles_part = found_parts[0]
                 styles_element = styles_part.element
             else:
-                styles_xml = f'<w:styles {nsdecls("w")}></w:styles>'
+                styles_xml = f"<w:styles {nsdecls('w')}></w:styles>"
                 styles_element = parse_xml(styles_xml)
                 styles_part = pkg._add_part(uri, content_type, styles_element)
 
@@ -135,11 +134,13 @@ class WordProcessor:
         styles_element.append(styles_lib.make_heading_style())
         styles_element.append(styles_lib.make_caption_style())
 
-        if hasattr(doc, '_styles'):
-            delattr(doc, '_styles')
+        if hasattr(doc, "_styles"):
+            delattr(doc, "_styles")
         _ = doc.styles  # Принудительно перезагружается кэш стилей
 
-    def _is_title(self, p: Paragraph, all_paragraphs: list[Paragraph], index: int) -> bool:
+    def _is_title(
+        self, p: Paragraph, all_paragraphs: list[Paragraph], index: int
+    ) -> bool:
         if not p.text.strip():
             return False
 
@@ -167,7 +168,9 @@ class WordProcessor:
             parent = parent.getparent()
         return False
 
-    def _is_after_page_break(self, p: Paragraph, all_paragraphs: list[Paragraph], index: int) -> bool:
+    def _is_after_page_break(
+        self, p: Paragraph, all_paragraphs: list[Paragraph], index: int
+    ) -> bool:
         if index == 0:
             return False
         prev_p = all_paragraphs[index - 1]
@@ -188,7 +191,9 @@ class WordProcessor:
         is_in_numbered_list = bool(p.style.name.startswith("List"))
         return starts_with_number and not is_in_numbered_list
 
-    def _is_heading_by_position(self, p: Paragraph, all_paragraphs: list[Paragraph], index: int) -> bool:
+    def _is_heading_by_position(
+        self, p: Paragraph, all_paragraphs: list[Paragraph], index: int
+    ) -> bool:
         if index == 0:
             return True
         if index > 0:
@@ -198,7 +203,9 @@ class WordProcessor:
             return ends_with_punct(prev_text) and not ends_with_punct(curr_text)
         return False
 
-    def _is_after_media(self, p: Paragraph, all_paragraphs: list[Paragraph], index: int) -> bool:
+    def _is_after_media(
+        self, p: Paragraph, all_paragraphs: list[Paragraph], index: int
+    ) -> bool:
         if index == 0:
             return False
         prev_p = all_paragraphs[index - 1]
@@ -223,19 +230,21 @@ class WordProcessor:
     def _number_figure_caption(self, p: Paragraph) -> None:
         self._figure_counter += 1
         caption_text = p.text.strip()
-        if not re.match(r'^Рисунок\s+\d+', caption_text):
+        if not re.match(r"^Рисунок\s+\d+", caption_text):
             prefix = f"Рисунок {self._figure_counter} — "
             if p.runs:
                 p.runs[0].text = prefix + p.runs[0].text
             else:
                 p.add_run(prefix)
         self._report["figures_numbered"] += 1
-        self._report["details"].append(f"Рисунок {self._figure_counter}: {caption_text}")
+        self._report["details"].append(
+            f"Рисунок {self._figure_counter}: {caption_text}"
+        )
 
     def _number_table_caption(self, p: Paragraph) -> None:
         self._table_counter += 1
         caption_text = p.text.strip()
-        if not re.match(r'^Таблица\s+\d+', caption_text):
+        if not re.match(r"^Таблица\s+\d+", caption_text):
             prefix = f"Таблица {self._table_counter} — "
             if p.runs:
                 p.runs[0].text = prefix + p.runs[0].text
@@ -254,21 +263,23 @@ class WordProcessor:
     def _add_footer(self, doc: Document) -> None:
         section = doc.sections[0]
         footer = section.footer
-        paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        paragraph = (
+            footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        )
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         paragraph.clear()
         run = paragraph.add_run()
-        fldChar = OxmlElement('w:fldChar')
-        fldChar.set(qn('w:fldCharType'), 'begin')
+        fldChar = OxmlElement("w:fldChar")
+        fldChar.set(qn("w:fldCharType"), "begin")
         run._r.append(fldChar)
 
-        instrText = OxmlElement('w:instrText')
-        instrText.set(qn('xml:space'), 'preserve')
+        instrText = OxmlElement("w:instrText")
+        instrText.set(qn("xml:space"), "preserve")
         instrText.text = "PAGE"
         run._r.append(instrText)
 
-        fldChar = OxmlElement('w:fldChar')
-        fldChar.set(qn('w:fldCharType'), 'end')
+        fldChar = OxmlElement("w:fldChar")
+        fldChar.set(qn("w:fldCharType"), "end")
         run._r.append(fldChar)
 
     def _add_page_margins(self, doc: Document) -> None:
