@@ -1,4 +1,4 @@
-import requests
+import httpx
 from backend.application.interfaces.formatter_service import (
     FormatterServiceInterface,
 )
@@ -12,17 +12,28 @@ class HttpFormatterService(FormatterServiceInterface):
     def __init__(self, base_url: str):
         self._base_url = base_url.rstrip("/")
 
-    async def format(self, document: Document) -> dict:
+    async def format(
+        self,
+        document: Document,
+        check_only: bool = False,
+        config: dict | None = None,
+    ) -> dict:
         url = f"{self._base_url}/process"
         abs_path = document.path
+        payload: dict[str, object] = {"filepath": abs_path, "check_only": check_only}
+        if config:
+            payload["config"] = config
 
-        # TODO: requests.post блокирует event loop. Заменить на httpx.AsyncClient
-        try:
-            response = requests.post(url, json={"filepath": abs_path}, timeout=120)
-        except requests.RequestException as exc:
-            raise FormatterServiceError(
-                f"Formatter service unreachable: {exc}"
-            ) from exc
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            try:
+                response = await client.post(
+                    url,
+                    json=payload,
+                )
+            except httpx.RequestError as exc:
+                raise FormatterServiceError(
+                    f"Formatter service unreachable: {exc}"
+                ) from exc
 
         if response.status_code != 200:
             raise FormatterServiceError(

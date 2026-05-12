@@ -1,10 +1,11 @@
+import difflib
 import logging
 import os
 import re
 
 import styles as styles_lib
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
@@ -16,14 +17,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def _fresh_report() -> dict:
+def _fresh_report(check_only: bool = False) -> dict:
     return {
         "paragraphs_formatted": 0,
         "headings_detected": 0,
+        "heading_page_breaks_added": 0,
         "figures_numbered": 0,
         "tables_numbered": 0,
         "page_fields_set": False,
         "page_numbering_added": False,
+        "table_of_contents_generated": False,
+        "table_of_contents_entries": 0,
+        "table_of_contents_page": None,
+        "check_only": check_only,
+        "diff_path": None,
+        "diff_available": False,
+        "diff_has_changes": False,
         "details": [],
     }
 
@@ -39,7 +48,7 @@ class WordProcessor:
     def report(self) -> dict:
         return self._report
 
-    def process_file(self, filepath: str) -> dict:
+    def process_file(self, filepath: str, check_only: bool = False) -> dict:
         if not filepath.endswith(".docx"):
             raise ValueError("Invalid file type. Only .docx is supported.")
         if not os.path.exists(filepath):
@@ -47,17 +56,31 @@ class WordProcessor:
 
         self._figure_counter = 0
         self._table_counter = 0
-        self._report = _fresh_report()
+        self._report = _fresh_report(check_only=check_only)
 
         try:
             logger.info(f"Opening document: {filepath}")
             doc = Document(filepath)
             logger.info("Document initialized successfully")
+            original_lines = self._document_to_diff_lines(doc)
 
-            self.process(doc)
+            processing_doc = Document(filepath) if check_only else doc
+            self.process(processing_doc)
+            processed_lines = self._document_to_diff_lines(processing_doc)
 
-            doc.save(filepath)
-            logger.info("Document saved successfully")
+            diff_path = self._write_diff_file(
+                filepath,
+                original_lines,
+                processed_lines,
+                check_only=check_only,
+            )
+            self._report["diff_path"] = diff_path
+            self._report["diff_available"] = True
+            self._report["diff_has_changes"] = original_lines != processed_lines
+
+            if not check_only:
+                processing_doc.save(filepath)
+                logger.info("Document saved successfully")
         except Exception as e:
             logger.exception(
                 f"Failed to process document {filepath} with Exception {e}"
@@ -75,7 +98,15 @@ class WordProcessor:
             if self.config.override_formatting:
                 self._override_run_properties(p)
 
-            if self.config.headings and self._is_title(p, paragraphs, i):
+            if self._is_generated_toc_title(p):
+                continue
+            elif self.config.headings and self._is_title(p, paragraphs, i):
+                if i > 0 and not self._is_after_page_break(p, paragraphs, i):
+                    self._insert_page_break_before(p)
+                    self._report["heading_page_breaks_added"] += 1
+                    self._report["details"].append(
+                        f"Добавлен разрыв страницы перед заголовком: {p.text.strip()[:50]}"
+                    )
                 p.style = styles_lib.StyleIds.Heading1
                 self._report["headings_detected"] += 1
                 self._report["details"].append(f"Заголовок: {p.text.strip()[:50]}")
@@ -97,6 +128,8 @@ class WordProcessor:
         if self.config.page_fields:
             self._add_page_margins(doc)
             self._report["page_fields_set"] = True
+        if self.config.table_of_contents:
+            self._ensure_table_of_contents(doc)
 
     def _doc_init(self, doc: Document) -> None:
         if doc._element.body is None:
@@ -195,7 +228,7 @@ class WordProcessor:
         self, p: Paragraph, all_paragraphs: list[Paragraph], index: int
     ) -> bool:
         if index == 0:
-            return True
+            return False
         if index > 0:
             prev_text = all_paragraphs[index - 1].text.strip()
             curr_text = p.text.strip()
@@ -293,3 +326,152 @@ class WordProcessor:
         pg_mar.set(qn("w:right"), "850")
         pg_mar.set(qn("w:top"), "1133")
         pg_mar.set(qn("w:bottom"), "1133")
+
+    def _ensure_table_of_contents(self, doc: Document) -> None:
+        headings = self._collect_heading_entries(doc)
+        self._report["table_of_contents_entries"] = len(headings)
+        self._report["table_of_contents_page"] = self.config.table_of_contents_page
+        if not headings:
+            return
+
+        anchor, current_page = self._get_toc_anchor(doc, headings[0]["paragraph"])
+        additional_breaks = max(0, self.config.table_of_contents_page - current_page)
+
+        title = anchor.insert_paragraph_before("Содержание")
+        title.style = styles_lib.StyleIds.Heading1
+
+        for _ in range(additional_breaks):
+            self._insert_page_break_before(title)
+
+        for heading in headings:
+            entry = anchor.insert_paragraph_before(heading["text"])
+            entry.style = styles_lib.StyleIds.Normal
+            entry.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+        self._insert_page_break_before(anchor)
+
+        self._report["table_of_contents_generated"] = True
+        self._report["details"].append(
+            f"Содержание добавлено {self.config.table_of_contents_page}-й страницей: {len(headings)}"
+        )
+
+    def _collect_heading_entries(self, doc: Document) -> list[dict[str, Paragraph | str]]:
+        entries: list[dict[str, Paragraph | str]] = []
+        for paragraph in doc.paragraphs:
+            if self._is_generated_toc_title(paragraph):
+                continue
+            if (
+                paragraph.style is not None
+                and paragraph.style.style_id == styles_lib.StyleIds.Heading1
+                and paragraph.text.strip()
+            ):
+                entries.append({"paragraph": paragraph, "text": paragraph.text.strip()})
+        return entries
+
+    def _get_toc_anchor(
+        self,
+        doc: Document,
+        first_heading: Paragraph,
+    ) -> tuple[Paragraph, int]:
+        target_page = self.config.table_of_contents_page
+        current_page = 1
+
+        for paragraph in doc.paragraphs:
+            if current_page >= target_page:
+                return paragraph, current_page
+            if paragraph == first_heading:
+                return paragraph, current_page
+            current_page += self._count_page_breaks(paragraph)
+
+        return first_heading if doc.paragraphs else doc.add_paragraph(), current_page
+
+    def _is_generated_toc_title(self, paragraph: Paragraph) -> bool:
+        return paragraph.text.strip().lower() == "содержание"
+
+    def _insert_page_break_before(self, paragraph: Paragraph) -> None:
+        page_break = paragraph.insert_paragraph_before()
+        page_break.add_run().add_break(WD_BREAK.PAGE)
+
+    def _count_page_breaks(self, paragraph: Paragraph) -> int:
+        page_breaks = 0
+        for br in paragraph._element.iter(qn("w:br")):
+            if br.get(qn("w:type")) == "page":
+                page_breaks += 1
+        return page_breaks
+
+    def _paragraph_contains_toc_field(self, paragraph: Paragraph) -> bool:
+        for instr_text in paragraph._element.iter(qn("w:instrText")):
+            if "TOC " in (instr_text.text or ""):
+                return True
+        return False
+
+    def _document_to_diff_lines(self, doc: Document) -> list[str]:
+        lines: list[str] = []
+
+        for paragraph in doc.paragraphs:
+            for _ in range(self._count_page_breaks(paragraph)):
+                lines.append("[PAGE BREAK]")
+            style_name = paragraph.style.name if paragraph.style is not None else "No Style"
+            text = self._normalize_diff_text(paragraph.text)
+            line = f"[{style_name}]"
+            if text:
+                line = f"{line} {text}"
+            lines.append(line)
+
+        for index, table in enumerate(doc.tables, start=1):
+            lines.append(f"[TABLE {index}]")
+            for row in table.rows:
+                cells = [self._normalize_diff_text(cell.text) for cell in row.cells]
+                lines.append(" | ".join(cells))
+
+        if not lines:
+            lines.append("[EMPTY DOCUMENT]")
+
+        return lines
+
+    @staticmethod
+    def _normalize_diff_text(text: str) -> str:
+        return " ".join(text.replace("\xa0", " ").split())
+
+    def _write_diff_file(
+        self,
+        filepath: str,
+        before_lines: list[str],
+        after_lines: list[str],
+        check_only: bool,
+    ) -> str:
+        diff_path = f"{os.path.splitext(filepath)[0]}_diff.html"
+        html_diff = difflib.HtmlDiff(wrapcolumn=100)
+        target_label = "Потенциальный результат" if check_only else "После форматирования"
+        diff_html = html_diff.make_file(
+            before_lines,
+            after_lines,
+            fromdesc="Исходный документ",
+            todesc=target_label,
+            context=True,
+            numlines=2,
+            charset="utf-8",
+        )
+
+        summary = (
+            "Сравнение построено по тексту и стилям абзацев. "
+            "Изменения полей страницы и нумерации смотрите в отчёте."
+        )
+        if before_lines == after_lines:
+            summary = (
+                "Текстовых или стилевых различий не найдено. "
+                "Возможные изменения полей страницы и нумерации смотрите в отчёте."
+            )
+        banner = (
+            "<div style=\"padding:16px 20px;background:#f8f9fa;border-bottom:1px solid #dee2e6;"
+            "font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;\">"
+            f"<h2 style=\"margin:0 0 8px;font-size:20px;\">Diff документа</h2>"
+            f"<p style=\"margin:0;color:#495057;\">{summary}</p>"
+            "</div>"
+        )
+        diff_html = diff_html.replace("<body>", f"<body>{banner}", 1)
+
+        with open(diff_path, "w", encoding="utf-8") as diff_file:
+            diff_file.write(diff_html)
+
+        return diff_path

@@ -33,7 +33,10 @@ class UploadWithTitleUseCase:
         self._rules = Rules()
 
     async def execute(
-        self, upload_document: UploadDocument, title_data: dict
+        self,
+        upload_document: UploadDocument,
+        title_data: dict,
+        formatting_config: dict | None = None,
     ) -> tuple[Document, dict]:
         """Загружает документ, форматирует, генерирует титульный лист и объединяет в один файл.
 
@@ -44,6 +47,7 @@ class UploadWithTitleUseCase:
         Args:
             upload_document (UploadDocument): Загружаемый документ.
             title_data (dict): Поля TitleData для генерации титульного листа.
+            formatting_config (dict | None): Опции форматирования для formatter-service.
 
         Raises:
             ValueError: Если документ не прошёл валидацию.
@@ -63,7 +67,10 @@ class UploadWithTitleUseCase:
             )
             document = Document(filename=upload_document.filename, path=file_path)
 
-            report = await self.formatter_service.format(document)
+            report = await self.formatter_service.format(
+                document,
+                config=formatting_config,
+            )
 
             # Передаём doc_id сервису, чтобы он мог уникально назвать файл.
             title_path = await self.title_service.create_title(

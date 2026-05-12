@@ -24,9 +24,12 @@ class UploadDocumentUseCase:
         self._rules = Rules()
 
     async def execute(
-        self, upload_document: UploadDocument
+        self,
+        upload_document: UploadDocument,
+        check_only: bool = False,
+        formatting_config: dict | None = None,
     ) -> tuple[Document, dict | None]:
-        """Загружает документ на сервер, сохраняет его в БД и запускает форматирование.
+        """Загружает документ на сервер, сохраняет его в БД и запускает обработку.
 
         Сохраняет документ со статусом PENDING, затем вызывает сервис форматирования.
         При успехе — обновляет статус на COMPLETED и сохраняет отчёт.
@@ -35,6 +38,9 @@ class UploadDocumentUseCase:
 
         Args:
             upload_document (UploadDocument): Загружаемый документ.
+            check_only (bool): Если True, документ только проверяется без записи
+                изменений в исходный файл.
+            formatting_config (dict | None): Опции форматирования для formatter-service.
 
         Raises:
             ValueError: Если документ не прошёл валидацию.
@@ -52,7 +58,11 @@ class UploadDocumentUseCase:
         await self.document_repo.add(document)
 
         try:
-            report = await self.formatter_service.format(document)
+            report = await self.formatter_service.format(
+                document,
+                check_only=check_only,
+                config=formatting_config,
+            )
             await self.document_repo.update_status(
                 document.id, Status.COMPLETED, report=report
             )

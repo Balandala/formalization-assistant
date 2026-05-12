@@ -20,3 +20,5 @@ class FormattingConfig(BaseModel):
     Captions: bool = True
     PagesNumeration: bool = True
     PageFields: bool = True
+    TableOfContents: bool = False
+    TableOfContentsPage: int = 2

@@ -6,5 +6,5 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
 
-docker-compose down --volumes
-docker-compose up --build
+docker compose down --volumes
+docker compose up --build

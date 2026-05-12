@@ -11,6 +11,7 @@ app = FastAPI(title="Formatting Lib")
 
 class ProcessRequest(BaseModel):
     filepath: str
+    check_only: bool = False
     config: Optional[dict] = None
 
 
@@ -29,7 +30,10 @@ def process_file(request: ProcessRequest):
 
     try:
         wp = WordProcessor(config)
-        report = wp.process_file(request.filepath)
+        report = wp.process_file(
+            request.filepath,
+            check_only=request.check_only,
+        )
         return {
             "status": "ok",
             "message": "File processed successfully",

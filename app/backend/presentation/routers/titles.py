@@ -36,10 +36,14 @@ async def upload_with_title(
     group: str = Form(...),
     chief: str = Form(...),
     post: str = Form(...),
+    generate_toc: bool = Form(False),
+    toc_page_number: int = Form(2),
     use_case: FromDishka[UploadWithTitleUseCase] = ...,  # type: ignore[assignment]
 ):
     if not file.filename or not file.filename.endswith(".docx"):
         raise HTTPException(status_code=400, detail="Only .docx files are allowed")
+    if toc_page_number < 1:
+        raise HTTPException(status_code=400, detail="toc_page_number must be >= 1")
 
     title_data = TitleData(
         institute=institute,
@@ -57,7 +61,15 @@ async def upload_with_title(
         size=file.size or 0,
     )
     try:
-        document, _ = await use_case.execute(dto, title_data.model_dump())
+        formatting_config = {
+            "table_of_contents": generate_toc,
+            "table_of_contents_page": toc_page_number,
+        }
+        document, _ = await use_case.execute(
+            dto,
+            title_data.model_dump(),
+            formatting_config=formatting_config,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except (FormatterServiceError, TitleServiceError) as exc:

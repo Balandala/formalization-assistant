@@ -6,15 +6,64 @@ const titleForm = document.getElementById('titleForm');
 const modeUpload = document.getElementById('mode-upload');
 const modeTitle = document.getElementById('mode-title');
 const addTitleCheckbox = document.getElementById('addTitleCheckbox');
+const includeTitleInput = document.getElementById('includeTitle');
+const checkOnlyContainer = document.getElementById('checkOnlyContainer');
+const checkOnlyInput = document.getElementById('checkOnly');
+const tocContainer = document.getElementById('tocContainer');
+const generateTocInput = document.getElementById('generateToc');
+const tocPageInput = document.getElementById('tocPageNumber');
 
 let pollInterval = null;
 let currentDocId = null;
 
 const container = dropZone.parentElement;
 
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function showStatusError(message) {
+    statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${escapeHtml(message)}</div>`;
+}
+
+async function readErrorMessage(response, fallback) {
+    try {
+        const errorData = await response.json();
+        return errorData.detail || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function syncUploadOptions() {
+    if (checkOnlyInput.checked) {
+        includeTitleInput.checked = false;
+    }
+    includeTitleInput.disabled = checkOnlyInput.checked;
+}
+
+function syncTocOptions() {
+    tocPageInput.disabled = !generateTocInput.checked;
+}
+
+function getFormattingOptions() {
+    const tocPageNumber = Number.parseInt(tocPageInput.value, 10);
+    return {
+        generateToc: generateTocInput.checked,
+        tocPageNumber: Number.isNaN(tocPageNumber) || tocPageNumber < 1 ? 2 : tocPageNumber,
+    };
+}
+
 function updateMode() {
     titleForm.style.display = 'none';
     addTitleCheckbox.style.display = 'none';
+    checkOnlyContainer.style.display = 'none';
+    tocContainer.style.display = 'none';
 
     if (modeTitle.checked) {
         titleForm.style.display = 'block';
@@ -22,11 +71,17 @@ function updateMode() {
     } else {
         dropZoneText.textContent = 'Перетащите сюда файл .docx или кликните, чтобы выбрать';
         addTitleCheckbox.style.display = 'block';
+        checkOnlyContainer.style.display = 'block';
+        tocContainer.style.display = 'block';
+        syncUploadOptions();
+        syncTocOptions();
     }
 }
 
 modeUpload.addEventListener('change', updateMode);
 modeTitle.addEventListener('change', updateMode);
+checkOnlyInput.addEventListener('change', syncUploadOptions);
+generateTocInput.addEventListener('change', syncTocOptions);
 updateMode();
 
 
@@ -69,15 +124,22 @@ fileInput.addEventListener('change', () => {
 
 async function handleFile(file) {
     if (!file.name.endsWith('.docx')) {
-        statusDiv.innerHTML = '<div class="alert alert-danger">Только .docx файлы разрешены!</div>';
+        showStatusError('Только .docx файлы разрешены!');
         return;
     }
 
     statusDiv.innerHTML = '';
-    const includeTitle = document.getElementById('includeTitle').checked;
+    const checkOnly = checkOnlyInput.checked;
+    const includeTitle = includeTitleInput.checked;
+    const formattingOptions = getFormattingOptions();
+
+    if (checkOnly) {
+        await uploadFile(file, true, formattingOptions);
+        return;
+    }
 
     if (!includeTitle) {
-        await uploadFile(file);
+        await uploadFile(file, false, formattingOptions);
         return;
     }
 
@@ -100,7 +162,7 @@ async function handleFile(file) {
             alert('Заполните все поля');
             return;
         }
-        await uploadWithCover(file);
+        await uploadWithCover(file, formattingOptions);
     };
 
     statusDiv.innerHTML = '';
@@ -108,11 +170,54 @@ async function handleFile(file) {
 }
 
 
-async function uploadFile(file) {
-    statusDiv.innerHTML = '<div class="alert alert-info">Загрузка...</div>';
+function renderCompletedState(docId, report) {
+    const checkOnly = Boolean(report && report.check_only);
+    const successTitle = checkOnly ? '✅ Проверка завершена!' : '✅ Готово!';
+    const previewLabel = checkOnly ? 'Предпросмотр исходного файла' : 'Предпросмотр';
+    const diffButton = report && report.diff_path
+        ? `
+            <button class="btn btn-outline-secondary me-2" onclick="openDiff('${docId}')">
+                <i class="bi bi-file-diff"></i> Diff
+            </button>
+        `
+        : '';
+    const downloadButton = checkOnly
+        ? ''
+        : `
+            <button class="btn btn-success" onclick="downloadFile('${docId}')">
+                <i class="bi bi-download"></i> Скачать файл
+            </button>
+        `;
+    const note = checkOnly
+        ? '<div class="mt-2 small text-muted">Исходный файл не изменялся.</div>'
+        : '';
+
+    statusDiv.innerHTML = `
+        <div class="alert alert-success">
+            <strong>${successTitle}</strong>
+            <div class="mt-2">
+                ${diffButton}
+                <button class="btn btn-outline-primary me-2" onclick="openPreview('${docId}')">
+                    <i class="bi bi-eye"></i> ${previewLabel}
+                </button>
+                ${downloadButton}
+            </div>
+            ${note}
+        </div>
+        ${renderReport(report)}
+    `;
+}
+
+async function uploadFile(file, checkOnly = false, formattingOptions = getFormattingOptions()) {
+    statusDiv.innerHTML = checkOnly
+        ? '<div class="alert alert-info">Проверка документа...</div>'
+        : '<div class="alert alert-info">Загрузка...</div>';
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('check_only', String(checkOnly));
+    formData.append('generate_toc', String(formattingOptions.generateToc));
+    formData.append('toc_page_number', String(formattingOptions.tocPageNumber));
 
     try {
         const response = await fetch('/upload', {
@@ -120,22 +225,35 @@ async function uploadFile(file) {
             body: formData,
         });
 
-        if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка загрузки');
+        if (!response.ok) {
+            throw new Error(
+                await readErrorMessage(
+                    response,
+                    checkOnly ? 'Ошибка проверки' : 'Ошибка загрузки',
+                ),
+            );
+        }
 
         const result = await response.json();
         currentDocId = result.id;
+        if (result.status === 'COMPLETED') {
+            renderCompletedState(result.id, result.report);
+            return;
+        }
+        if (result.status === 'FAILED') {
+            showStatusError('Ошибка обработки');
+            return;
+        }
         startPolling(result.id);
     } catch (error) {
-        statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+        showStatusError(error.message);
     }
 }
 
 
-async function uploadWithCover(file) {
-    console.log("uploadWithCover вызвана", file);
+async function uploadWithCover(file, formattingOptions = getFormattingOptions()) {
     const formData = new FormData();
 
-    // Явно добавляем нужные поля
     formData.append('file', file);
     formData.append('institute', document.getElementById('institute').value);
     formData.append('work_type', document.getElementById('work_type').value);
@@ -145,6 +263,8 @@ async function uploadWithCover(file) {
     formData.append('group', document.getElementById('group').value);
     formData.append('chief', document.getElementById('chief').value);
     formData.append('post', document.getElementById('post').value);
+    formData.append('generate_toc', String(formattingOptions.generateToc));
+    formData.append('toc_page_number', String(formattingOptions.tocPageNumber));
 
     statusDiv.innerHTML = '<div class="alert alert-info">Загрузка и генерация титульного листа...</div>';
 
@@ -155,15 +275,20 @@ async function uploadWithCover(file) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
-            throw new Error(errorData.detail || 'Ошибка при загрузке с титульным листом');
+            throw new Error(
+                await readErrorMessage(response, 'Ошибка при загрузке с титульным листом'),
+            );
         }
 
         const result = await response.json();
         currentDocId = result.id;
+        if (result.status === 'COMPLETED') {
+            renderCompletedState(result.id, result.report);
+            return;
+        }
         startPolling(result.id);
     } catch (error) {
-        statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+        showStatusError(error.message);
     }
 }
 
@@ -195,7 +320,9 @@ async function generateTitle() {
             body: JSON.stringify(data),
         });
 
-        if (!response.ok) throw new Error((await response.json()).detail || 'Ошибка генерации');
+        if (!response.ok) {
+            throw new Error(await readErrorMessage(response, 'Ошибка генерации'));
+        }
 
         const result = await response.json();
         currentDocId = result.id;
@@ -213,7 +340,7 @@ async function generateTitle() {
             </div>
         `;
     } catch (error) {
-        statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка: ${error.message}</div>`;
+        showStatusError(error.message);
     }
 }
 
@@ -231,25 +358,32 @@ async function fetchReport(docId) {
 function renderReport(report) {
     if (!report) return '';
 
+    const checkOnly = Boolean(report.check_only);
     const items = [];
     if (report.paragraphs_formatted > 0)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Отформатировано параграфов: <strong>${report.paragraphs_formatted}</strong></li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет нормализовано абзацев' : 'Отформатировано параграфов'}: <strong>${report.paragraphs_formatted}</strong></li>`);
     if (report.headings_detected > 0)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Определено заголовков: <strong>${report.headings_detected}</strong></li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет оформлено заголовков' : 'Определено заголовков'}: <strong>${report.headings_detected}</strong></li>`);
+    if (report.heading_page_breaks_added > 0)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет добавлено разрывов страницы перед заголовками' : 'Добавлено разрывов страницы перед заголовками'}: <strong>${report.heading_page_breaks_added}</strong></li>`);
     if (report.figures_numbered > 0)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Пронумеровано рисунков: <strong>${report.figures_numbered}</strong></li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет пронумеровано рисунков' : 'Пронумеровано рисунков'}: <strong>${report.figures_numbered}</strong></li>`);
     if (report.tables_numbered > 0)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Пронумеровано таблиц: <strong>${report.tables_numbered}</strong></li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет пронумеровано таблиц' : 'Пронумеровано таблиц'}: <strong>${report.tables_numbered}</strong></li>`);
     if (report.page_numbering_added)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Добавлена нумерация страниц</li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет добавлена нумерация страниц' : 'Добавлена нумерация страниц'}</li>`);
     if (report.page_fields_set)
-        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> Установлены поля страницы</li>`);
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будут установлены поля страницы' : 'Установлены поля страницы'}</li>`);
+    if (report.table_of_contents_generated)
+        items.push(`<li class="list-group-item"><i class="bi bi-check-circle text-success"></i> ${checkOnly ? 'Будет сгенерировано содержание' : 'Сгенерировано содержание'}${report.table_of_contents_entries > 0 ? `: <strong>${report.table_of_contents_entries}</strong>` : ''}${report.table_of_contents_page ? `, страница <strong>${report.table_of_contents_page}</strong>` : ''}</li>`);
 
-    if (items.length === 0) return '';
+    if (items.length === 0 && (!report.details || report.details.length === 0)) return '';
 
     let detailsHtml = '';
     if (report.details && report.details.length > 0) {
-        const detailItems = report.details.map(d => `<li class="list-group-item list-group-item-light small">${d}</li>`).join('');
+        const detailItems = report.details
+            .map((detail) => `<li class="list-group-item list-group-item-light small">${escapeHtml(detail)}</li>`)
+            .join('');
         detailsHtml = `
             <div class="mt-2">
                 <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#reportDetails" role="button">
@@ -264,7 +398,7 @@ function renderReport(report) {
 
     return `
         <div class="card mt-3">
-            <div class="card-header"><i class="bi bi-clipboard-check"></i> Отчёт о форматировании</div>
+            <div class="card-header"><i class="bi bi-clipboard-check"></i> ${checkOnly ? 'Отчёт о проверке' : 'Отчёт о форматировании'}</div>
             <ul class="list-group list-group-flush">${items.join('')}</ul>
             ${detailsHtml}
         </div>
@@ -275,6 +409,13 @@ function openPreview(docId) {
     const frame = document.getElementById('previewFrame');
     frame.src = `/preview/${docId}`;
     const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+function openDiff(docId) {
+    const frame = document.getElementById('diffFrame');
+    frame.src = `/diff/${docId}`;
+    const modal = new bootstrap.Modal(document.getElementById('diffModal'));
     modal.show();
 }
 
@@ -294,29 +435,15 @@ function startPolling(docId) {
             const result = await response.json();
             if (result.status === 'COMPLETED') {
                 clearInterval(pollInterval);
-                const report = await fetchReport(docId);
-                const reportHtml = renderReport(report);
-                statusDiv.innerHTML = `
-                    <div class="alert alert-success">
-                        <strong>✅ Готово!</strong>
-                        <div class="mt-2">
-                            <button class="btn btn-outline-primary me-2" onclick="openPreview('${docId}')">
-                                <i class="bi bi-eye"></i> Предпросмотр
-                            </button>
-                            <button class="btn btn-success" onclick="downloadFile('${docId}')">
-                                <i class="bi bi-download"></i> Скачать файл
-                            </button>
-                        </div>
-                    </div>
-                    ${reportHtml}
-                `;
+                const report = result.report ?? await fetchReport(docId);
+                renderCompletedState(docId, report);
             } else if (result.status === 'FAILED') {
                 clearInterval(pollInterval);
-                statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка обработки</div>`;
+                showStatusError('Ошибка обработки');
             }
         } catch (e) {
             clearInterval(pollInterval);
-            statusDiv.innerHTML = `<div class="alert alert-danger">Ошибка сети</div>`;
+            showStatusError('Ошибка сети');
         }
     }, 3000);
 }
