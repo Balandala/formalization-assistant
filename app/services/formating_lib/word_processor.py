@@ -433,6 +433,81 @@ class WordProcessor:
     def _normalize_diff_text(text: str) -> str:
         return " ".join(text.replace("\xa0", " ").split())
 
+    _DIFF_DARK_CSS = """
+    body {
+        background: #0a0a0a;
+        color: #c8c8c8;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    table.diff {
+        font-family: Menlo, Consolas, Monaco, 'Liberation Mono', monospace;
+        font-size: 12.5px;
+        border: none !important;
+        border-collapse: collapse;
+        width: 100%;
+        background: #0a0a0a;
+    }
+    table.diff td {
+        color: #b8b8b8;
+        padding: 2px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.025);
+    }
+    table.diff thead th {
+        background: #111 !important;
+        color: rgba(255,255,255,0.35) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .diff_header {
+        background-color: #111 !important;
+        color: rgba(255,255,255,0.22) !important;
+        font-size: 11px;
+        user-select: none;
+        border-right: 1px solid rgba(255,255,255,0.04) !important;
+        min-width: 36px;
+    }
+    td.diff_header { text-align: right !important; }
+    .diff_next {
+        background-color: #111 !important;
+        color: rgba(255,255,255,0.22) !important;
+        font-size: 11px;
+        text-align: center;
+        min-width: 24px;
+    }
+    .diff_next a { color: rgba(255,255,255,0.30) !important; text-decoration: none; }
+    .diff_next a:hover { color: rgba(255,255,255,0.60) !important; }
+    td.diff_add { background-color: rgba(74, 222, 128, 0.07) !important; }
+    td.diff_chg { background-color: rgba(250, 204, 21, 0.06) !important; }
+    td.diff_sub { background-color: rgba(248, 113, 113, 0.08) !important; }
+    span.diff_add {
+        background-color: rgba(74, 222, 128, 0.25) !important;
+        color: #86efac !important;
+        border-radius: 2px;
+        padding: 0 1px;
+    }
+    span.diff_chg {
+        background-color: rgba(250, 204, 21, 0.22) !important;
+        color: #fde68a !important;
+        border-radius: 2px;
+        padding: 0 1px;
+    }
+    span.diff_sub {
+        background-color: rgba(248, 113, 113, 0.24) !important;
+        color: #fca5a5 !important;
+        border-radius: 2px;
+        padding: 0 1px;
+    }
+    a { color: rgba(255,255,255,0.35); }
+    colgroup { border: none !important; }
+    """
+
     def _write_diff_file(
         self,
         filepath: str,
@@ -453,6 +528,8 @@ class WordProcessor:
             charset="utf-8",
         )
 
+        diff_html = diff_html.replace("</style>", self._DIFF_DARK_CSS + "\n    </style>", 1)
+
         summary = (
             "Сравнение построено по тексту и стилям абзацев. "
             "Изменения полей страницы и нумерации смотрите в отчёте."
@@ -463,10 +540,13 @@ class WordProcessor:
                 "Возможные изменения полей страницы и нумерации смотрите в отчёте."
             )
         banner = (
-            "<div style=\"padding:16px 20px;background:#f8f9fa;border-bottom:1px solid #dee2e6;"
-            "font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;\">"
-            f"<h2 style=\"margin:0 0 8px;font-size:20px;\">Diff документа</h2>"
-            f"<p style=\"margin:0;color:#495057;\">{summary}</p>"
+            "<div style=\"padding:16px 22px 14px;"
+            "background:rgba(255,255,255,0.03);"
+            "border-bottom:1px solid rgba(255,255,255,0.07);"
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\">"
+            "<h2 style=\"margin:0 0 6px;font-size:17px;font-weight:600;"
+            "color:rgba(255,255,255,0.88);\">Diff документа</h2>"
+            f"<p style=\"margin:0;font-size:13px;color:rgba(255,255,255,0.40);\">{summary}</p>"
             "</div>"
         )
         diff_html = diff_html.replace("<body>", f"<body>{banner}", 1)

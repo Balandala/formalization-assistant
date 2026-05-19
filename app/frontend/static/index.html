@@ -8,123 +8,140 @@
     <link rel="stylesheet" href="../styles/styles.css">
     <title>DocAssistant</title>
 </head>
-<body class="p-4">
-    <h3>DocAssistant</h3>
-
-    <div class="container">
-
-        <div class="mb-3">
-            <div class="btn-group" role="group">
-                <input type="radio" class="btn-check" name="mode" id="mode-upload" autocomplete="off" checked>
-                <label class="btn btn-outline-primary" for="mode-upload">Загрузить документ</label>
-
-                <input type="radio" class="btn-check" name="mode" id="mode-title" autocomplete="off">
-                <label class="btn btn-outline-primary" for="mode-title">Только титульный лист</label>
+<body>
+    <div class="page-wrapper">
+        <header class="page-header">
+            <div class="header-icon">
+                <i class="bi bi-file-earmark-text"></i>
             </div>
-        </div>
+            <h1 class="header-title">DocAssistant</h1>
+            <p class="header-subtitle">Автоматическое форматирование документов</p>
+        </header>
 
+        <div class="glass-container">
 
+            <div class="mb-4">
+                <div class="glass-toggle btn-group" role="group">
+                    <input type="radio" class="btn-check" name="mode" id="mode-upload" autocomplete="off" checked>
+                    <label class="btn btn-glass-toggle" for="mode-upload">
+                        <i class="bi bi-upload"></i> Загрузить документ
+                    </label>
 
-        <div class="mb-3" id="upload-container">
-            <div class="drop-zone" id="dropZone">
-                <p id="dropZoneText">Перетащите сюда файл .docx или кликните, чтобы выбрать</p>
-                <i class="bi bi-cloud-upload display-4 text-primary"></i>
-            </div>
-            <input type="file" id="fileInput" accept=".docx" style="display: none;">
-
-            <div class="mb-3" id="addTitleCheckbox" style="display: none;">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="includeTitle">
-                    <label class="form-check-label" for="includeTitle">
-                        Добавить титульный лист к документу
+                    <input type="radio" class="btn-check" name="mode" id="mode-title" autocomplete="off">
+                    <label class="btn btn-glass-toggle" for="mode-title">
+                        <i class="bi bi-file-earmark-plus"></i> Только титульный лист
                     </label>
                 </div>
             </div>
 
-            <div class="mb-3" id="checkOnlyContainer" style="display: none;">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="checkOnly">
-                    <label class="form-check-label" for="checkOnly">
-                        Только проверить документ без изменений
-                    </label>
-                </div>
-                <div class="form-text">
-                    Покажем потенциальные правки и отчёт, не меняя исходный файл.
-                </div>
-            </div>
-
-            <div class="mb-3" id="tocContainer" style="display: none;">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="generateToc">
-                    <label class="form-check-label" for="generateToc">
-                        Сгенерировать содержание по заголовкам
-                    </label>
-                </div>
-                <div class="row g-2 mt-1 align-items-center">
-                    <div class="col-auto">
-                        <label class="col-form-label" for="tocPageNumber">Вставить страницей</label>
-                    </div>
-                    <div class="col-3">
-                        <input type="number" min="1" class="form-control" id="tocPageNumber" value="2">
+            <div id="upload-container">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-content">
+                        <i class="bi bi-cloud-upload drop-zone-icon"></i>
+                        <p id="dropZoneText" class="drop-zone-text">Перетащите сюда файл .docx или кликните, чтобы выбрать</p>
                     </div>
                 </div>
+                <input type="file" id="fileInput" accept=".docx" style="display: none;">
+
+                <div class="mt-3" id="addTitleCheckbox" style="display: none;">
+                    <div class="glass-check">
+                        <input class="glass-check-input" type="checkbox" id="includeTitle">
+                        <label class="glass-check-label" for="includeTitle">
+                            <i class="bi bi-file-earmark-plus me-2"></i>Добавить титульный лист к документу
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mt-3" id="checkOnlyContainer" style="display: none;">
+                    <div class="glass-check">
+                        <input class="glass-check-input" type="checkbox" id="checkOnly">
+                        <label class="glass-check-label" for="checkOnly">
+                            <i class="bi bi-search me-2"></i>Только проверить документ без изменений
+                        </label>
+                    </div>
+                    <div class="glass-hint">
+                        Покажем потенциальные правки и отчёт, не меняя исходный файл.
+                    </div>
+                </div>
+
+                <div class="mt-3" id="tocContainer" style="display: none;">
+                    <div class="glass-check">
+                        <input class="glass-check-input" type="checkbox" id="generateToc">
+                        <label class="glass-check-label" for="generateToc">
+                            <i class="bi bi-list-ol me-2"></i>Сгенерировать содержание по заголовкам
+                        </label>
+                    </div>
+                    <div class="row g-2 mt-2 align-items-center">
+                        <div class="col-auto">
+                            <label class="glass-label mb-0" for="tocPageNumber">Вставить страницей</label>
+                        </div>
+                        <div class="col-3">
+                            <input type="number" min="1" class="glass-input" id="tocPageNumber" value="2">
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <form id="titleForm" style="display: none;" class="glass-form mt-3">
+                <h6 class="form-section-title">
+                    <i class="bi bi-card-text me-2"></i>Данные для титульного листа
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="glass-label">Институт</label>
+                        <input type="text" class="glass-input" id="institute" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Тип работы</label>
+                        <input type="text" class="glass-input" id="work_type" value="Курсовая работа" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Дисциплина</label>
+                        <input type="text" class="glass-input" id="subject" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Тема</label>
+                        <input type="text" class="glass-input" id="theme" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Автор</label>
+                        <input type="text" class="glass-input" id="author" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Группа</label>
+                        <input type="text" class="glass-input" id="group" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Руководитель</label>
+                        <input type="text" class="glass-input" id="chief" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="glass-label">Должность</label>
+                        <input type="text" class="glass-input" id="post" value="Преподаватель" required>
+                    </div>
+                </div>
+            </form>
+
+            <div class="mt-4" id="status"></div>
         </div>
-
-        <form id="titleForm" style="display: none;" class="mt-3 p-3 border rounded bg-light">
-        <h6>Введите данные для титульного листа</h6>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Институт</label>
-                    <input type="text" class="form-control" id="institute" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Тип работы</label>
-                    <input type="text" class="form-control" id="work_type" value="Курсовая работа" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Дисциплина</label>
-                    <input type="text" class="form-control" id="subject" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Тема</label>
-                    <input type="text" class="form-control" id="theme" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Автор</label>
-                    <input type="text" class="form-control" id="author" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Группа</label>
-                    <input type="text" class="form-control" id="group" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Руководитель</label>
-                    <input type="text" class="form-control" id="chief" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Должность</label>
-                    <input type="text" class="form-control" id="post" value="Преподаватель" required>
-                </div>
-            </div>
-        </form>
-
-
-        <div class="mt-3" id="status"></div>
     </div>
 
     <!-- Модальное окно предпросмотра -->
     <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="previewModalLabel">Предпросмотр документа</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            <div class="modal-content glass-modal">
+                <div class="modal-header glass-modal-header">
+                    <h5 class="modal-title" id="previewModalLabel">
+                        <i class="bi bi-eye me-2"></i>Предпросмотр документа
+                    </h5>
+                    <button type="button" class="glass-close" data-bs-dismiss="modal" aria-label="Закрыть">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
                 <div class="modal-body p-0">
                     <iframe id="previewFrame" style="width: 100%; height: 70vh; border: none;"></iframe>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer glass-modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
                 </div>
             </div>
@@ -133,10 +150,14 @@
 
     <div class="modal fade" id="diffModal" tabindex="-1" aria-labelledby="diffModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="diffModalLabel">Diff документа</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            <div class="modal-content glass-modal glass-modal-fullscreen">
+                <div class="modal-header glass-modal-header">
+                    <h5 class="modal-title" id="diffModalLabel">
+                        <i class="bi bi-file-diff me-2"></i>Diff документа
+                    </h5>
+                    <button type="button" class="glass-close" data-bs-dismiss="modal" aria-label="Закрыть">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
                 <div class="modal-body p-0">
                     <iframe id="diffFrame" style="width: 100%; height: 100%; min-height: 80vh; border: none;"></iframe>
