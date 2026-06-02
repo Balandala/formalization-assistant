@@ -7,9 +7,9 @@ from backend.presentation.routers.documents import router as documents_router
 from backend.presentation.routers.titles import router as titles_router
 from config import Settings
 from dishka.integrations.fastapi import setup_dishka
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 # main.py находится по пути app/backend/main.py.
@@ -61,18 +61,28 @@ app.mount(
 )
 
 
-@app.get("/main")
-async def get_main_page():
+def _index_response() -> FileResponse:
     filename = os.path.join(_FRONTEND_DIR, "static", "index.html")
     if not os.path.exists(filename):
-        from fastapi import HTTPException
-
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(filename)
 
 
+@app.get("/", include_in_schema=False)
+async def get_index():
+    return _index_response()
+
+
 app.include_router(documents_router)
 app.include_router(titles_router)
+
+
+# SPA fallback: любой не-API GET-запрос отправляем на лендинг.
+# Должен быть зарегистрирован ПОСЛЕ всех роутеров, чтобы не перехватывать их.
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    return RedirectResponse(url="/", status_code=307)
+
 
 container = create_container()
 setup_dishka(container, app=app)
